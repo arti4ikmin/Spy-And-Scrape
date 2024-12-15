@@ -9,8 +9,8 @@ public class NotifierBot
     
     
     private readonly DiscordSocketClient _client;
-    // private BotCmds _botCommands;
-    // private readonly HttpClient _httpClient;
+    private BotCmds _botCommands;
+    private readonly HttpClient _httpClient;
     
     public NotifierBot()
     {
@@ -19,8 +19,8 @@ public class NotifierBot
         _client.Log += Log;
         _client.Ready += OnReady;
         
-        // _httpClient = new HttpClient();
-        // _botCommands = new BotCmds(_client, this);
+        _httpClient = new HttpClient();
+        _botCommands = new BotCmds(_client, this);
     }
 
     public async Task StartAsync(string botT)
@@ -45,7 +45,6 @@ public class NotifierBot
     private async Task OnReady()
     {
         Console.WriteLine("Bot is connected");
-        
         var args = CommandLineArgs.GetArgs();
         if (args.Length > 0 && args[0] == "delay") { SendBotMessage("Bot was successfully restarted. With delay.", 1, false); }
         else if (JReader.CurrentConfig.sendStartingMessageOnStartup == 0) { SendBotMessage("" , 0, false); }

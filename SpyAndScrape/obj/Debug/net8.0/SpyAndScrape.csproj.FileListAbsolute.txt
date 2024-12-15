@@ -54,3 +54,4 @@ C:\Users\Arti\RiderProjects\SpyAndScrapeRelease\SpyAndScrape\obj\Debug\net8.0\re
 C:\Users\Arti\RiderProjects\SpyAndScrapeRelease\SpyAndScrape\obj\Debug\net8.0\SpyAndScrape.pdb
 C:\Users\Arti\RiderProjects\SpyAndScrapeRelease\SpyAndScrape\obj\Debug\net8.0\SpyAndScrape.genruntimeconfig.cache
 C:\Users\Arti\RiderProjects\SpyAndScrapeRelease\SpyAndScrape\obj\Debug\net8.0\ref\SpyAndScrape.dll
+C:\Users\Arti\RiderProjects\SpyAndScrapeRelease\SpyAndScrape\obj\Debug\net8.0\SpyAndScrape.sourcelink.json

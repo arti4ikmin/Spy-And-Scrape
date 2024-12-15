@@ -181,7 +181,7 @@ namespace SpyAndScrape
 
             Console.WriteLine("------[INFO] logging stopped ------");
             
-            _logWriter.Close();
+            _logWriter?.Close();
             Console.SetOut(_origConsoleOutput);
             _isLogging = false;
         }
@@ -190,8 +190,8 @@ namespace SpyAndScrape
         public static void OnProcessExit(object sender, EventArgs e)
         {
             Console.WriteLine("OnProcessExit");
-            _httpClient.Dispose();
-            _bot.ShutdownBot();
+            _httpClient?.Dispose();
+            _bot?.ShutdownBot();
             _dcMsgs?.StopPyWss();
             StopLogging();
         }
@@ -200,7 +200,7 @@ namespace SpyAndScrape
         {
             Console.WriteLine("OnCancelKeyPress");
             _dcMsgs?.StopPyWss();
-            _bot.ShutdownBot();
+            _bot?.ShutdownBot();
             Task.Run(async () =>
             {
                 await Task.Delay(1000);
@@ -208,7 +208,7 @@ namespace SpyAndScrape
                 Environment.Exit(0);
                 // real?
             });
-            _httpClient.Dispose();
+            _httpClient?.Dispose();
             StopLogging();
             e.Cancel = true;
         }

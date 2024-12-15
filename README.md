@@ -9,7 +9,7 @@ This project is a bot managable trough discord, which tracks certain actions of 
 ## How-to
 ### Requirements
 - python3 (+ pip install websockets)
-- dotNET Runtime
+- dotNET Runtime (tested with 8)
 
 ### [Video tutorial link](https://youtu.be/wgk_KMtgaXk)
 

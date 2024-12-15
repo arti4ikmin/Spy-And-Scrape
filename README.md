@@ -64,6 +64,20 @@ Following options are aviable:
 - required means you need to change this if you want to track that 
  - logLevel can only be between 1-3 (including)
  - for "Startup Message" its an 0 or 1, not bool, bc I had some parsing problems
+
+
+
+## TODO (future plans)
+
+- Add tracking of the discord account itelf (bio, name, etc)
+- Add elevated notifications for deletion of messages
+- (more services ?)
+- try to apply changes without having to /restart
+- more commands for control
+- better config change clarity 
+
+
+
 ## INFO
 
 > WARNING: AUTOMATING NON BOT ACCOUNTS IS AGAINST THEIR TOS, I DO NOT TAKE RESPONSIBILITY OF ANY PROBLEMS CAUSED

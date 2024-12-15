@@ -22,6 +22,7 @@ namespace SpyAndScrape
 
         private async Task OnReadyAsync()
         {
+            Console.WriteLine("Bot is ready, doing commands...");
             foreach (var guild in _client.Guilds)
             {
                 var helloCommand = new SlashCommandBuilder()
@@ -57,18 +58,24 @@ namespace SpyAndScrape
                     .WithName("restart")
                     .WithDescription("Restarts the running program, use when you update config while running.");
 
-                
 
-                await guild.CreateApplicationCommandAsync(helloCommand.Build());
-                await guild.CreateApplicationCommandAsync(configChangeCommand.Build());
-                await guild.CreateApplicationCommandAsync(configChangeTab.Build());
-                await guild.CreateApplicationCommandAsync(debugCommand.Build());
-                await guild.CreateApplicationCommandAsync(timeOutSelf.Build());
-                await guild.CreateApplicationCommandAsync(listConfigCommand.Build());
-                await guild.CreateApplicationCommandAsync(restart.Build());
-                
-                Console.WriteLine($"cmd created in: {guild.Name}");
+                try
+                {
+                    await guild.CreateApplicationCommandAsync(helloCommand.Build());
+                    await guild.CreateApplicationCommandAsync(configChangeCommand.Build());
+                    await guild.CreateApplicationCommandAsync(configChangeTab.Build());
+                    await guild.CreateApplicationCommandAsync(debugCommand.Build());
+                    await guild.CreateApplicationCommandAsync(timeOutSelf.Build());
+                    await guild.CreateApplicationCommandAsync(listConfigCommand.Build());
+                    await guild.CreateApplicationCommandAsync(restart.Build());
+                    Console.WriteLine($"cmds created in: {guild.Name}");
 
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
             }
         }
 

@@ -73,7 +73,7 @@ public class NotifierBot
                     channelId = JReader.CurrentConfig.generalBotImportantChannelId;
                     break;
                 default:
-                    MethodMsgSetup("logLevel was either out of bounds (0-3) or smth broke", channelId, 1);
+                    MethodMsgSetup("logLevel was either out of bounds (0-3)", channelId, 1);
                     break;
                 
             }
@@ -94,7 +94,7 @@ public class NotifierBot
                 MethodMsgImportant(msg, header, channelId, true);
                 break;
             default:
-                MethodMsgSetup("logLevel was either out of bounds (0-3) or smth broke", channelId, 1);
+                MethodMsgSetup("logLevel was either out of bounds (0-3)", channelId, 1);
                 break;
             
         }
@@ -117,7 +117,7 @@ public class NotifierBot
         switch (type)
         {
             case 0:
-                await channel.SendMessageAsync($"Hello! This is the 1st message on startup from the bot! Use /startinfo to get further information. If its the 1st startup it might take time for the slash commands to take effect.\nTrack Discord Messages: {JReader.CurrentConfig.trackDiscord}, Track Roblox: {JReader.CurrentConfig.trackRoblox}.\nTracking will bgein in shortly for the activated...");
+                await channel.SendMessageAsync($"Hello! This is the 1st message on startup from the bot! Use /startinfo to get further information. If its the 1st startup it might take time for the slash commands to take effect.\nTrack Discord Messages: {JReader.CurrentConfig.trackDiscord}, Track Roblox: {JReader.CurrentConfig.trackRoblox}.\nTracking will begin in shortly for the activated...");
                 break;
             case 1: 
                 await channel.SendMessageAsync(payload);

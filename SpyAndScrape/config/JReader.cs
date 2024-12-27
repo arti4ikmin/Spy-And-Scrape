@@ -103,7 +103,7 @@ class JReader
         PropertyInfo? property = typeof(Config).GetProperty(key);
         if (property == null)
         {
-            Console.WriteLine($"'{key}'  does not exist in the configuration.");
+            Console.WriteLine($"'{key}' does not exist in the configuration.");
             return false;
         }
 

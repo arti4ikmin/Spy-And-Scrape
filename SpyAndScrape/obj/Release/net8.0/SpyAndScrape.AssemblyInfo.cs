@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SpyAndScrape")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fbab365c7249279b055764d2d959a891fefa6daf")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+caaeda3c9821b9885c66a27c551b87320cf18df9")]
 [assembly: System.Reflection.AssemblyProductAttribute("SpyAndScrape")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SpyAndScrape")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

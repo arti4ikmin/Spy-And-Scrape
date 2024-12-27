@@ -74,13 +74,5 @@ namespace SpyAndScrape
             return await res.Content.ReadAsStringAsync();
 
         }
-
-
-
-        
-        public void Dispose()
-        {
-            _httpClient.Dispose();
-        }
     }
 }

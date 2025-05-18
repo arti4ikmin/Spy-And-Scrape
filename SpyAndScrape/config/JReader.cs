@@ -35,31 +35,58 @@ class JReader
     {
         string cfgFPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
 
-        await Task.Run(() =>
         {
             if (!File.Exists(cfgFPath))
             {
                 Console.WriteLine("cfg not found, creating new config file...");
                 var defCfg = new Config();
                 WriteConfigToFile(defCfg, cfgFPath);
+                CurrentConfig = defCfg;
             }
             else
             {
                 Console.WriteLine("cfg file found, getting values...");
-                string jsonContent = File.ReadAllText(cfgFPath);
-                CurrentConfig = JsonConvert.DeserializeObject<Config>(jsonContent);
-
-                //
-                bool upd = ValidateAndFixConfig(CurrentConfig);
-
-                if (upd)
+                try // ew try catch but prevents 1st startup bug
                 {
+                    string jsonContent = File.ReadAllText(cfgFPath);
+                    CurrentConfig = JsonConvert.DeserializeObject<Config>(jsonContent);
+
+                    if (CurrentConfig == null)
+                    {
+                        Console.WriteLine("cfg file was empty or invalid. Recreating with default values.");
+                        CurrentConfig = new Config();
+                        WriteConfigToFile(CurrentConfig, cfgFPath);
+                        return;
+                    }
+                    else
+                    {
+                        bool upd = ValidateAndFixConfig(CurrentConfig);
+                        if (upd)
+                        {
+                            WriteConfigToFile(CurrentConfig, cfgFPath);
+                            Console.WriteLine("cfg file updated with values for missing fields");
+                            return;
+                        }
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"Error deserializing config.json: {ex.Message}. Recreating with default values.");
+                    // string backupPath = cfgFPath + ".corrupted." + DateTime.Now.ToString("yyyyMMddHHmmss");
+                    // File.Move(cfgFPath, backupPath);
+                    CurrentConfig = new Config();
                     WriteConfigToFile(CurrentConfig, cfgFPath);
-                    Console.WriteLine("cfg file updated with values for missing fields");
+                }
+                catch (Exception ex)
+                {
+                     Console.WriteLine($"Unexpected error reading config.json: {ex.Message}. Recreating with default values.");
+                     CurrentConfig = new Config();
+                     WriteConfigToFile(CurrentConfig, cfgFPath);
                 }
             }
-        });
+        }
     }
+
 
     private static bool ValidateAndFixConfig(Config cfg)
     {
@@ -117,4 +144,3 @@ class JReader
 
     }
 }
-

@@ -8,6 +8,8 @@ using SpyAndScrape.FileSystem;
 using System.Text;
 using SpyAndScrape.config;
 
+#pragma warning disable 4014
+
 namespace SpyAndScrape.Trackers;
 
 public class RobloxTrack

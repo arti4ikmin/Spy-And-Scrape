@@ -4,6 +4,8 @@ using SpyAndScrape.config;
 
 namespace SpyAndScrape;
 
+#pragma warning disable 4014
+
 public class NotifierBot
 {
     
@@ -123,7 +125,7 @@ public class NotifierBot
                 await channel.SendMessageAsync(payload);
                 break;
             default:
-                await channel.SendMessageAsync("Unknown call recived");
+                await channel.SendMessageAsync("Unknown call received");
                 break;
             
         }
@@ -139,7 +141,7 @@ public class NotifierBot
                 var embed = new EmbedBuilder()
                     .WithTitle("Tracker detected activity from: " + JReader.CurrentConfig.generalTargetName)
                     .WithDescription(payload)
-                    .WithColor(new Color(0, 200, 255))
+                    .WithColor(new Discord.Color(0, 200, 255))
                     .WithFooter("Log Activity ", JReader.CurrentConfig.generalBotDecoration)
                     
                     .Build();
@@ -150,7 +152,7 @@ public class NotifierBot
                 var embed = new EmbedBuilder()
                     .WithTitle("")
                     .WithDescription(payload)
-                    .WithColor(new Color(0, 200, 255))
+                    .WithColor(new Discord.Color(0, 200, 255))
                     .WithFooter("Log Activity ", JReader.CurrentConfig.generalBotDecoration)
                     
                     .Build();
@@ -174,7 +176,7 @@ public class NotifierBot
                 var embed = new EmbedBuilder()
                     .WithTitle("Tracker detected activity from: " + JReader.CurrentConfig.generalTargetName)
                     .WithDescription(payload)
-                    .WithColor(new Color(255, 0, 0))
+                    .WithColor(new Discord.Color(255, 0, 0))
                     .WithFooter("Elevated important Level event", JReader.CurrentConfig.generalBotDecoration)
                     .Build();
 
@@ -186,7 +188,7 @@ public class NotifierBot
                 var embed = new EmbedBuilder()
                     .WithTitle("")
                     .WithDescription(payload)
-                    .WithColor(new Color(255, 0, 0))
+                    .WithColor(new Discord.Color(255, 0, 0))
                     .WithFooter("Elevated important Level event", JReader.CurrentConfig.generalBotDecoration)
                     .Build();
 

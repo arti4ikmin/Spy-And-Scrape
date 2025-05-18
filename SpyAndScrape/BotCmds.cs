@@ -5,6 +5,8 @@ using SpyAndScrape.config;
 using System.Diagnostics;
 using System.Reflection;
 
+#pragma warning disable 4014
+
 namespace SpyAndScrape
 {
     public class BotCmds
@@ -88,7 +90,7 @@ namespace SpyAndScrape
                     .WithTitle("Welcome to the Stalk and Spy Bot!")
                     .WithDescription(
                         "For a better understanding of the bot please read: \n[Click here](https://github.com/arti4ikmin/AssetsDatabase/blob/main/image0.jpg?raw=true)") //TODO: UPDATE STRING FR
-                    .WithColor(new Color(
+                    .WithColor(new Discord.Color(
                         5814783)) // clr is a decimal value (5814783 is the decimal so called 'equivalent' of the hex color - yes I am speaking in great inglish)
                     .AddField("Commands:",
                         "Following commands are available right now:\n** /startinfo ** - Starts the welcome message as well as some information.\n** /configchange ** - Edits the config.json through the bot by overwriting. \n ** /listconfig ** - Lists all config settings and their current values. \n ** /debug ** - Saves the full console output and sends it as a file. \n **/timeoutself** Times the bots logging out for specified time, if it gets annoying \n")
@@ -323,7 +325,7 @@ namespace SpyAndScrape
                     {
                         if (JReader.OverwriteConfigValue(key, parsedVal))
                         {
-                            await modal.RespondAsync($"Cfg updated for `{key}` with valeu `{parsedVal}`.");
+                            await modal.RespondAsync($"Cfg updated for `{key}` with value `{parsedVal}`.");
                         }
                         else
                         {

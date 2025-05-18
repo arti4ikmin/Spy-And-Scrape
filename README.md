@@ -5,13 +5,12 @@ This project is a bot managable trough discord, which tracks certain actions of 
 
 #### This is a part of the future arti core addons to track someone else's activity. Arti core will be entirely used to manage your account and make life easier
 
-# PROJECT IS IN VERY EARLY DEV
+# PROJECT IS IN EARLY DEV
 ## How-to
 ### Requirements
-- python3 (+ pip install websockets)
 - dotNET Runtime (tested with 8)
 
-### [Video tutorial link](https://youtu.be/wgk_KMtgaXk)
+### [Video tutorial link (unaviable for now sry)](https://youtu.be/wgk_KMtgaXk)
 
 
 - Create a USER alt account and join as many servers as you know your target is in (yes you have to do that for discord message tracking)

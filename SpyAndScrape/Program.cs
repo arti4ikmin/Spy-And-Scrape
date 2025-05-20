@@ -181,7 +181,7 @@ namespace SpyAndScrape
                 if (_isFirstEverRun && JReader.CurrentConfig.generalBotSetupChannelId != 0)
                 {
                     Console.WriteLine("[Program] New config. Bot will start, then initiate setup.");
-                    botLifetimeTask = _bot.StartAsync(JReader.CurrentConfig.generalBotToken); // Start the bot
+                    botLifetimeTask = _bot.StartAsync(JReader.CurrentConfig.generalBotToken);
 
                     _ = Task.Run(async () => { // bg task for setup
                         await _bot.WaitForReadyAsync();

@@ -34,7 +34,6 @@ class JReader
 
     public static async Task GetStartingJsonAsync()
     {
-        IsNewCfgJustCreated = false;
         string cfgFPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
 
         {

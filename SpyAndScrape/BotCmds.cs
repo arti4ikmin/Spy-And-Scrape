@@ -265,7 +265,7 @@ namespace SpyAndScrape
 
             if (cmd.CommandName == "restart")
             {
-                cmd.RespondAsync("Trying to restart the program, await.");
+                cmd.RespondAsync("Trying to restart the program, await.(You should get a message in a few seconds, if not the app broke :( )");
                 string exePath = Process.GetCurrentProcess().MainModule.FileName;
                 Process.Start(exePath, "delay");
                 Program.OnProcessExit(null, EventArgs.Empty);

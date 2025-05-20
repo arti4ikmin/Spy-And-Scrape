@@ -45,7 +45,9 @@ namespace SpyAndScrape
         private static TextWriter _origConsoleOutput;
         private static bool _isLogging = false;
         private static NotifyIcon _notifyIcon;
-        
+
+        private static bool _isFirstEverRun = false;
+
         private static string PromptInput(string title, string prompt, bool isPass = false)
         {
             // [STAThread] is critical
@@ -82,7 +84,7 @@ namespace SpyAndScrape
             }
         }
 
-        // 
+        //
         [STAThread]
         static async Task Main(string[] args)
         {
@@ -100,19 +102,15 @@ namespace SpyAndScrape
                 var ex = (Exception)e.ExceptionObject;
                 Console.WriteLine($"[UNHANDLED ex] An error was caught: {ex.Message}. Details: {ex.StackTrace}");
                 // System.Windows.Forms.MessageBox.Show($"A critical unhandled error occurred: {ex.Message}\nThe application will now exit.", "Unhandled Exception", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                PerformShutdownTasks();
-                _notifyIcon?.Dispose();
-                StopLogging();
-                Environment.Exit(1);
+                // PerformShutdownTasks();
+                // _notifyIcon?.Dispose();
+                // StopLogging();
+                // Environment.Exit(1);
             };
 
             try
             {
-                StartLogging();
-                Console.WriteLine("SPY AND SCRAPE: app starting...");
 
-                InitializeNotifyIcon();
-                
                 if (args.Length > 0 && args[0] == "delay")
                 {
                     Console.WriteLine("THE PROGRAM WAS STARTED WITH DELAY ARGUMENT, WAITING 1.5 SECONDS");
@@ -122,17 +120,23 @@ namespace SpyAndScrape
                 {
                     Console.WriteLine("Program was init without args");
                 }
+                
+                StartLogging();
+                Console.WriteLine("SPY AND SCRAPE: starting...");
+
+                InitNotifyIcon();
 
                 _httpClient = new HttpClient();
                 AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
 
                 await JReader.GetStartingJsonAsync();
-            Checks:
+                _isFirstEverRun = JReader.IsNewCfgJustCreated;
+
                 Thread.Sleep(100);
 
                 if (string.IsNullOrEmpty(JReader.CurrentConfig.generalBotToken))
                 {
-                    Console.WriteLine("CRITICAL: No bot token provided. Prompting user.");
+                    Console.WriteLine("CRITICAL: No bot token provided");
                     var tmpval = PromptInput("Bot Token Required", "CRITICAL: No bot token provided.\nPlease enter the Discord Bot Token:", true);
 
                     if (string.IsNullOrWhiteSpace(tmpval))
@@ -145,7 +149,7 @@ namespace SpyAndScrape
                         return;
                     }
                     JReader.OverwriteConfigValue("generalBotToken", tmpval);
-                    await JReader.GetStartingJsonAsync();
+                    await JReader.GetStartingJsonAsync(); // re read in case
                 }
 
                 if (JReader.CurrentConfig.generalBotSetupChannelId == 0)
@@ -153,7 +157,7 @@ namespace SpyAndScrape
                     Console.WriteLine("CRITICAL: No setup channel ID provided. Prompting user.");
                     var tmpval = PromptInput("Setup Channel ID Required", "CRITICAL: Please provide the starting channel ID for the bot (e.g., for setup messages):");
 
-                    if (string.IsNullOrWhiteSpace(tmpval) || !ulong.TryParse(tmpval, out ulong result))
+                    if (string.IsNullOrWhiteSpace(tmpval) || !ulong.TryParse(tmpval, out ulong result) || result == 0)
                     {
                         Console.WriteLine("Invalid or no setup channel ID input was given by the user. Application cannot continue.");
                         MessageBox.Show("A valid starting Bot Setup Channel ID is required. Exiting.", "Critical Configuration Missing", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -164,34 +168,49 @@ namespace SpyAndScrape
                     }
 
                     JReader.OverwriteConfigValue("generalBotSetupChannelId", result);
-                    if (JReader.CurrentConfig.generalBotLogChannelId == 0) JReader.OverwriteConfigValue("generalBotLogChannelId", result);
-                    if (JReader.CurrentConfig.generalBotImportantChannelId == 0) JReader.OverwriteConfigValue("generalBotImportantChannelId", result);
+                    // if (JReader.CurrentConfig.generalBotLogChannelId == 0) JReader.OverwriteConfigValue("generalBotLogChannelId", result); // now part of interactive setup steps
+                    // if (JReader.CurrentConfig.generalBotImportantChannelId == 0) JReader.OverwriteConfigValue("generalBotImportantChannelId", result); 
                     await JReader.GetStartingJsonAsync();
                 }
 
                 _bot = new NotifierBot();
 
-                var rbTrack = new RobloxTrack();
-                if (JReader.CurrentConfig.trackRoblox)
+
+                Task botLifetimeTask; // main runnin task
+                
+                if (_isFirstEverRun && JReader.CurrentConfig.generalBotSetupChannelId != 0)
                 {
-                     _ = Task.Run(() => rbTrack.StartTrackingRoblox(_bot));
+                    Console.WriteLine("[Program] New config. Bot will start, then initiate setup.");
+                    botLifetimeTask = _bot.StartAsync(JReader.CurrentConfig.generalBotToken); // Start the bot
+
+                    _ = Task.Run(async () => { // bg task for setup
+                        await _bot.WaitForReadyAsync();
+                        Console.WriteLine("[Program] Bot is ready. Initiating first-run setup via Discord.");
+                        await _bot.InitiateFirstRunSetupAsync(JReader.CurrentConfig.generalBotSetupChannelId);
+                        // when setup completes, IsNewCfgJustCreated will be false (handled in NotifierBot I hope)
+                        if (!JReader.IsNewCfgJustCreated)
+                        {
+                            Console.WriteLine("[Program] Firstrun setup done; starting trackers if enabled");
+                            StartTrackers();
+                        }
+                    });
+                }
+                else
+                {
+                    // normal
+                    Console.WriteLine("[Program] Existing cfg or init setup not triggered proceeding with normal startup");
+                    JReader.IsNewCfgJustCreated = false;
+                    StartTrackers();
+                    botLifetimeTask = _bot.StartAsync(JReader.CurrentConfig.generalBotToken);
                 }
 
+                await botLifetimeTask; // alive keeper
 
-                if (JReader.CurrentConfig.trackDiscord == true)
-                {
-                    _dcMsgs = new DiscordMsgs(_bot);
-                     _ = Task.Run(() => _dcMsgs.StartTrackingAsync());
-                }
-
-                Console.WriteLine("Starting Discord Bot...");
-                await _bot.StartAsync(JReader.CurrentConfig.generalBotToken);
-                // StartAsync has Task.Delay(-1) it will keep Main alive
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[CRITICAL MAIN EXCEPTION] An error occurred during startup/main execution: {ex.Message}\n{ex.StackTrace}");
-                MessageBox.Show($"A critical error occurred: {ex.Message}\nThe application will attempt to shut down.", "Critical Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Console.WriteLine($"[CRITICAL MAIN EX] An err occurred during startup/main execution: {ex.Message}\n{ex.StackTrace}");
+                MessageBox.Show($"A critical err occurred: {ex.Message}\nThe app will attempt to continue working. Functional maybe limited, restart if possible", "Critical Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -202,8 +221,26 @@ namespace SpyAndScrape
                 Console.WriteLine("Application shutdown complete. Process will exit.");
             }
         }
-        
-        private static void InitializeNotifyIcon()
+
+        private static void StartTrackers()
+        {
+            if (!JReader.IsNewCfgJustCreated)
+            {
+                var rbTrack = new RobloxTrack();
+                if (JReader.CurrentConfig.trackRoblox)
+                { _ = Task.Run(() => rbTrack.StartTrackingRoblox(_bot)); }
+
+                _dcMsgs = new DiscordMsgs(_bot);
+                if (JReader.CurrentConfig.trackDiscord)
+                { _ = Task.Run(() => _dcMsgs.StartTrackingAsync()); }
+            }
+            else
+            {
+                Console.WriteLine("[Program] Trackers deferred as firstrun setup is still pending completion signal");
+            }
+        }
+
+        private static void InitNotifyIcon()
         {
             _notifyIcon = new NotifyIcon();
             try
@@ -211,7 +248,7 @@ namespace SpyAndScrape
                 string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico");
                 if (File.Exists(iconPath))
                 {
-                    _notifyIcon.Icon = new System.Drawing.Icon(iconPath);
+                    _notifyIcon.Icon = new Icon(iconPath);
                 }
             }
             catch (Exception ex)
@@ -232,7 +269,6 @@ namespace SpyAndScrape
 
             // _notifyIcon.DoubleClick += (sender, args) => OnOpenLogClickedHandler(sender, args);
         }
-        
         private static void OnOpenLogClickedHandler(object sender, EventArgs e)
         {
             string logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "console_output.txt");
@@ -259,7 +295,7 @@ namespace SpyAndScrape
                 catch (Exception ex)
                 {
                     MessageBox.Show($"Failed to restart the application: {ex.Message}", "SpyAndScrape - Restart Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    if (_notifyIcon != null) InitializeNotifyIcon();
+                    if (_notifyIcon != null) InitNotifyIcon();
                 }
             }
         }
@@ -269,12 +305,12 @@ namespace SpyAndScrape
             DialogResult result = MessageBox.Show("Are you sure you want to exit SpyAndScrape?", "SpyAndScrape - Exit Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (result == DialogResult.Yes)
             {
-                Console.WriteLine("[NotifyIcon] Exit requested by user.");
+                Console.WriteLine("[NotifyIcon] Exit requested by user");
                 // main fin block will handle PerformShutdownTasks, etc
                 Environment.Exit(0);
             }
         }
-        
+
         private static void PerformShutdownTasks(bool minimal = false)
         {
             Console.WriteLine("Performing shutdown tasks...");
@@ -285,12 +321,14 @@ namespace SpyAndScrape
                 if (_dcMsgs != null)
                 {
                     Console.WriteLine("Stopping Discord message tracking...");
-                    _dcMsgs.StopTrackingAsync().Wait(TimeSpan.FromSeconds(5));
+                    // nonblocking StopTrackingAsync
+                    // await _dcMsgs.StopTrackingAsync();
+                     _dcMsgs.StopTrackingAsync().Wait(TimeSpan.FromSeconds(5)); // can risk deadlock
                 }
                 if (_bot != null)
                 {
                      Console.WriteLine("Shutting down Discord bot...");
-                    _bot.ShutdownBot().Wait(TimeSpan.FromSeconds(5));
+                     _bot.ShutdownBot().Wait(TimeSpan.FromSeconds(5));
                 }
             }
             Console.WriteLine("Core shutdown tasks completed");
@@ -301,28 +339,67 @@ namespace SpyAndScrape
         {
             if (_isLogging) return;
             string lFP = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "console_output.txt");
+
             if (File.Exists(lFP))
             {
-                // string backupLogFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"console_output_{DateTime.Now:yyyyMMddHHmmss}.txt.old");
-                // File.Move(lFP, backupLogFile);
-                File.Delete(lFP);
-            }
+                const int maxRetries = 9;
+                const int delayOnRetryMilliseconds = 300;
 
+                for (int i = 0; i < maxRetries; ++i)
+                {
+                    try
+                    {
+                        File.Delete(lFP);
+                        Debug.WriteLine($"[StartLogging] Successfully deleted existing log file: {lFP}");
+                        break;
+                    }
+                    catch (IOException ex)
+                    {
+                        Debug.WriteLine($"[StartLogging] Attempt {i + 1} to delete log file '{lFP}' failed: {ex.Message}");
+                        if (i < maxRetries - 1)
+                        {
+                            Thread.Sleep(delayOnRetryMilliseconds);
+                        }
+                        else
+                        {
+                            Console.Error.WriteLine($"[CRITICAL WARN] StartLogging: Failed to delete existing log file '{lFP}' after {maxRetries} attempts. " + $"The app will attempt to continue, but logging may append to the old file or fail if the file remains locked. Last error: {ex.Message}");
+                        }
+                    }
+                    catch (UnauthorizedAccessException uae)
+                    {
+                        Console.Error.WriteLine($"[CRITICAL ERROR] StartLogging: No permission to delete log file '{lFP}'. Error: {uae.Message}");
+                        break;
+                    }
+                }
+            }
 
             _origConsoleOutput = Console.Out;
             try
             {
-                _logWriter = new StreamWriter(lFP, true) { AutoFlush = true };
+                string logDirectory = Path.GetDirectoryName(lFP);
+                if (!string.IsNullOrEmpty(logDirectory) && !Directory.Exists(logDirectory))
+                {
+                    Directory.CreateDirectory(logDirectory);
+                }
+                
+                _logWriter = new StreamWriter(lFP, true) { AutoFlush = true }; // 'true' for append, creates if not exists
                 Console.SetOut(new MultiWriter(_origConsoleOutput, _logWriter));
                 _isLogging = true;
                 Console.WriteLine($"------[INFO] Logging started: {DateTime.Now} ------");
             }
             catch (Exception ex)
             {
-                if (_origConsoleOutput != null) Console.SetOut(_origConsoleOutput);
+                if (_origConsoleOutput != null)
+                {
+                    Console.SetOut(_origConsoleOutput);
+                }
                 _isLogging = false;
-                Debug.WriteLine($"[StartLogging Error] Failed to initialize StreamWriter: {ex.Message}");
-                Console.WriteLine($"[StartLogging Error] Failed to initialize StreamWriter: {ex.Message}");
+                _logWriter?.Dispose();
+                _logWriter = null;
+
+                Debug.WriteLine($"[StartLogging CRITICAL Error] Failed to init StreamWriter for '{lFP}': {ex.Message}");
+                (_origConsoleOutput ?? Console.Error).WriteLine($"[CRITICAL ERROR] Failed to start file logging: {ex.Message}. Console output will not be saved to file.");
+                // MessageBox.Show($"Failed to init file logging: {ex.Message}", "Logging Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         private static void StopLogging()
@@ -344,7 +421,7 @@ namespace SpyAndScrape
             StopLogging();
         }
     }
-    
+
     public class MultiWriter : TextWriter
     {
         private readonly TextWriter _consoleOut;
@@ -370,7 +447,7 @@ namespace SpyAndScrape
 
         public override Encoding Encoding => _consoleOut.Encoding;
     }
-    
+
     public static class CommandLineArgs
     {
         private static string[] _args;
@@ -385,6 +462,5 @@ namespace SpyAndScrape
         }
     }
 
-    
-}
 
+}

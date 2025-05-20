@@ -10,7 +10,7 @@ class JReader
     //hard coded... :skull:
     public class Config
     {
-        public string generalTargetName { get; set; } = "YourTargetName";
+        public string generalTargetName { get; set; } = "Target";
         public string generalBotToken { get; set; } = "";
         public string generalBotDecoration { get; set; } = "https://github.com/arti4ikmin/AssetsDatabase/blob/main/silly.png?raw=true";
         public int generalBotTimeout { get; set; } = 30;
@@ -19,20 +19,22 @@ class JReader
         public ulong generalBotLogChannelId { get; set; } = 0;
         public ulong generalBotImportantChannelId { get; set; } = 0;
         public string generalWhoToPing { get; set; } = "@here, <@&ROLEID>, <@PERSONID>";
-        
+
         public bool trackDiscord { get; set; } = false;
         public string discordTrackingUsername { get; set; } = "";
         public string discordTrackingToken { get; set; } = "";
         public int discordTrackingLogLevel { get; set; } = 1;
-        
+
         public bool trackRoblox { get; set; } = false;
         public ulong robloxTrackingUserId { get; set; } = 0;
     }
 
     public static Config CurrentConfig { get; private set; }
+    public static bool IsNewCfgJustCreated { get; set; } = false;
 
     public static async Task GetStartingJsonAsync()
     {
+        IsNewCfgJustCreated = false;
         string cfgFPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
 
         {
@@ -42,6 +44,7 @@ class JReader
                 var defCfg = new Config();
                 WriteConfigToFile(defCfg, cfgFPath);
                 CurrentConfig = defCfg;
+                IsNewCfgJustCreated = true;
             }
             else
             {
@@ -56,7 +59,7 @@ class JReader
                         Console.WriteLine("cfg file was empty or invalid. Recreating with default values.");
                         CurrentConfig = new Config();
                         WriteConfigToFile(CurrentConfig, cfgFPath);
-                        return;
+                        IsNewCfgJustCreated = true;
                     }
                     else
                     {
@@ -64,44 +67,42 @@ class JReader
                         if (upd)
                         {
                             WriteConfigToFile(CurrentConfig, cfgFPath);
-                            Console.WriteLine("cfg file updated with values for missing fields");
-                            return;
+                            Console.WriteLine("cfg file updated with values for missing fields.");
                         }
                     }
                 }
                 catch (JsonException ex)
                 {
-                    Console.WriteLine($"Error deserializing config.json: {ex.Message}. Recreating with default values.");
-                    // string backupPath = cfgFPath + ".corrupted." + DateTime.Now.ToString("yyyyMMddHHmmss");
-                    // File.Move(cfgFPath, backupPath);
+                    Console.WriteLine($"Error deserializing config.json: {ex.Message} recreating with default values");
                     CurrentConfig = new Config();
                     WriteConfigToFile(CurrentConfig, cfgFPath);
+                    IsNewCfgJustCreated = true;
                 }
                 catch (Exception ex)
                 {
-                     Console.WriteLine($"Unexpected error reading config.json: {ex.Message}. Recreating with default values.");
-                     CurrentConfig = new Config();
-                     WriteConfigToFile(CurrentConfig, cfgFPath);
+                    Console.WriteLine($"Unexpected error reading config.json: {ex.Message} recreating with default values");
+                    CurrentConfig = new Config();
+                    WriteConfigToFile(CurrentConfig, cfgFPath);
+                    IsNewCfgJustCreated = true;
                 }
             }
-        }
+        };
     }
-
 
     private static bool ValidateAndFixConfig(Config cfg)
     {
         bool upd = false;
+        var defCfg = new Config();
 
         foreach (PropertyInfo property in typeof(Config).GetProperties())
         {
             var currentValue = property.GetValue(cfg);
 
-            if (currentValue == null || IsDefVal(currentValue))
+            if (currentValue == null || IsDefVal(currentValue, property.GetValue(defCfg)))
             {
-                // get the default val from a new instance of cfh and set it
-                var defval = property.GetValue(new Config());
+                var defval = property.GetValue(defCfg);
                 property.SetValue(cfg, defval);
-                Console.WriteLine($"updated default value for {property.Name}");
+                Console.WriteLine($"[ConfigValidate] Property '{property.Name}' was default/null, set to default: '{defval ?? "null"}'");
                 upd = true;
             }
         }
@@ -109,11 +110,13 @@ class JReader
         return upd;
     }
 
-    private static bool IsDefVal(object? val)
+    private static bool IsDefVal(object? currentValue, object? defaultValue)
     {
-        if (val == null) return true; // how, why and what but it works
-        Type type = val.GetType();
-        return val.Equals(type.IsValueType ? Activator.CreateInstance(type) : null);
+        if (currentValue == null && defaultValue == null) return true;
+        if (currentValue == null && defaultValue != null) return true;
+        if (currentValue != null && defaultValue == null) return false;
+
+        return currentValue?.Equals(defaultValue) ?? false;
     }
 
     private static void WriteConfigToFile(Config cfg, string cfgFilePath)
@@ -121,26 +124,30 @@ class JReader
         string json = JsonConvert.SerializeObject(cfg, Formatting.Indented);
         File.WriteAllText(cfgFilePath, json);
     }
-    
 
-    
     public static bool OverwriteConfigValue(string key, object value)
     {
-
         PropertyInfo? property = typeof(Config).GetProperty(key);
         if (property == null)
         {
-            Console.WriteLine($"'{key}' does not exist in the configuration.");
+            Console.WriteLine($"[ConfigOverwrite] Key '{key}' does not exist in the configuration.");
             return false;
         }
 
-        
+        try
+        {
+            object convertedValue = Convert.ChangeType(value, property.PropertyType);
+            property.SetValue(CurrentConfig, convertedValue);
 
-        property.SetValue(CurrentConfig, Convert.ChangeType(value, property.PropertyType));
-        string configFilePath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
-        WriteConfigToFile(CurrentConfig, configFilePath);
-        Console.WriteLine($"cfg value for '{key}' has been updated to '{value}'.");
-        return true;
-
+            string configFilePath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
+            WriteConfigToFile(CurrentConfig, configFilePath);
+            Console.WriteLine($"[ConfigOverwrite] Config value for '{key}' has been updated to '{value}'.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConfigOverwrite] Error setting value for '{key}' to '{value}': {ex.Message}");
+            return false;
+        }
     }
 }

@@ -148,7 +148,7 @@ namespace SpyAndScrape
                     .AddOption("Important Channel ID", "generalBotImportantChannelId", "Channel ID for sending important notifications")
                     .AddOption("Who to Ping", "generalWhoToPing", "Defines who the bot should ping for notifications")
                     .AddOption("Track Discord Activity", "trackDiscord", "true or false tracking of Discord messages (more soon)")
-                    .AddOption("Discord Tracking Username", "discordTrackingUsername", "Username used for tracking Discord activity")
+                    .AddOption("Discord Tracking Id", "discordTrackingUsrId", "Id used for tracking Discord activity")
                     .AddOption("Discord Tracking Token", "discordTrackingToken", "Token for authenticating Discord tracking")
                     .AddOption("Discord Log Level", "discordTrackingLogLevel", "Defines the log level for Discord tracking (also determines if ping)")
                     .AddOption("Track Roblox Activity", "trackRoblox", "Enables or disables tracking of Roblox activity")

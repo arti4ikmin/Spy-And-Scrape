@@ -31,7 +31,7 @@ internal class HelloPayload
 internal class IdentifyProperties
 {
     [JsonPropertyName("$os")]
-    public string Os { get; set; } = "windows";
+    public string Os { get; set; } = "Windows";
 
     [JsonPropertyName("$browser")]
     public string Browser { get; set; } = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
@@ -121,7 +121,7 @@ public class DiscordMsgs
     private string _resumeGatewayUrl;
 
     private string _discordToken;
-    private string _trackingUsername;
+    private ulong _trackingId;
 
     private const string DefaultDiscordGatewayUrl = "wss://gateway.discord.gg/?v=10&encoding=json";
     private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
@@ -139,12 +139,12 @@ public class DiscordMsgs
     public async Task StartTrackingAsync()
     {
         _discordToken = JReader.CurrentConfig.discordTrackingToken;
-        _trackingUsername = JReader.CurrentConfig.discordTrackingUsername;
+        _trackingId = JReader.CurrentConfig.discordTrackingUsrId;
 
-        if (string.IsNullOrEmpty(_discordToken) || string.IsNullOrEmpty(_trackingUsername))
+        if (_trackingId == 0 || _trackingId == null || _trackingId == 1)
         {
-            Console.WriteLine("[DiscordMsgs] Token or tracking username is not configured. Discord tracking will not start");
-            _notifierBot.SendBotMessage("Discord tracking token or username not set in config.json. Tracking disabled", 3, false);
+            Console.WriteLine("[DiscordMsgs] Token or tracking id is not configured. Discord tracking will not start");
+            _notifierBot.SendBotMessage("Discord tracking token or id not set in config.json. Tracking disabled", 3, false);
             JReader.OverwriteConfigValue("trackDiscord", "false"); // if misconfigured
             return;
         }
@@ -353,7 +353,7 @@ public class DiscordMsgs
                 break;
             case "MESSAGE_CREATE":
                 var msg = JsonSerializer.Deserialize<DiscordMessageData>(eventData.GetRawText(), JsonOptions);
-                if (msg?.Author?.Username == _trackingUsername)
+                if (_trackingId == Convert.ToUInt64(msg?.Author?.Id))
                 {
                     ProcessDiscordMessage(msg);
                 }
@@ -453,7 +453,7 @@ public class DiscordMsgs
 
         _notifierBot.SendBotMessage(
             messageContent.ToString(),
-            JReader.CurrentConfig.discordTrackingLogLevel);
+            JReader.CurrentConfig.discordTrackingLogLevel - 1);
 
     }
     

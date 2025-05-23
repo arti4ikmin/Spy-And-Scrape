@@ -21,9 +21,9 @@ class JReader
         public string generalWhoToPing { get; set; } = "@here, <@&ROLEID>, <@PERSONID>";
 
         public bool trackDiscord { get; set; } = false;
-        public string discordTrackingUsername { get; set; } = "";
+        public ulong discordTrackingUsrId { get; set; } = 0;
         public string discordTrackingToken { get; set; } = "";
-        public int discordTrackingLogLevel { get; set; } = 1;
+        public int discordTrackingLogLevel { get; set; } = 2;
 
         public bool trackRoblox { get; set; } = false;
         public ulong robloxTrackingUserId { get; set; } = 0;

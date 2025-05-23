@@ -232,7 +232,13 @@ namespace SpyAndScrape
 
                 _dcMsgs = new DiscordMsgs(_bot);
                 if (JReader.CurrentConfig.trackDiscord)
-                { _ = Task.Run(() => _dcMsgs.StartTrackingAsync()); }
+                {
+                    _ = Task.Run(() => _dcMsgs.StartTrackingAsync()); 
+                    
+                    
+                    var dcUsrTrack = new DiscordUsrTrack();
+                    _ = Task.Run(() => dcUsrTrack.StartTrackingUsr(_bot));
+                }
             }
             else
             {

@@ -250,11 +250,11 @@ public class NotifierBot
         {
             _firstRun_PendingSteps.Add(new SetupStep
             {
-                ConfigKey = "discordTrackingUsername",
-                PromptMessage = "Provide the **Discord Username** for message tracking:",
-                ButtonText = "Set Discord Username",
-                ModalTitle = "Discord Username",
-                ModalInputLabel = "Username (case-sensitive)"
+                ConfigKey = "discordTrackingUsrId",
+                PromptMessage = "Provide the **Discord Id** for message tracking:",
+                ButtonText = "Set Discord Id",
+                ModalTitle = "Discord Id",
+                ModalInputLabel = "Id"
             });
             _firstRun_PendingSteps.Add(new SetupStep
             {
@@ -339,21 +339,21 @@ public class NotifierBot
             ModalTitle = "Target Name",
             ModalInputLabel = "Name"
         });
-        _firstRun_PendingSteps.Add(new SetupStep
-        {
-            ConfigKey = "generalBotDecoration",
-            PromptMessage = "Optional: Provide a **URL for a small image** to use in the footer of embeds (visual only):",
-            ButtonText = "Set Decoration Image URL",
-            ModalTitle = "Decoration Image URL",
-            ModalInputLabel = "Image URL (optional)",
-            ModalPlaceholder = "Leave blank or enter URL",
-            Validator = (input) =>
-            {
-                if (string.IsNullOrWhiteSpace(input)) return (true, null, input);
-                var isValid = Uri.TryCreate(input, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
-                return (isValid, isValid ? null : "Invalid URL format", input);
-            }
-        });
+        // _firstRun_PendingSteps.Add(new SetupStep
+        // {
+        //     ConfigKey = "generalBotDecoration",
+        //     PromptMessage = "Optional: Provide a **URL for a small image** to use in the footer of embeds (visual only):",
+        //     ButtonText = "Set Decoration Image URL",
+        //     ModalTitle = "Decoration Image URL",
+        //     ModalInputLabel = "Image URL (optional)",
+        //     ModalPlaceholder = "Leave blank or enter URL",
+        //     Validator = (input) =>
+        //     {
+        //         if (string.IsNullOrWhiteSpace(input)) return (true, null, input);
+        //         var isValid = Uri.TryCreate(input, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+        //         return (isValid, isValid ? null : "Invalid URL format", input);
+        //     }
+        // });
     }
 
     private async Task ProcessNextSetupStepAsync(SocketInteraction followupInteraction = null)
@@ -421,11 +421,12 @@ public class NotifierBot
 
         var stepsWithDefaultButton = new List<string>
         {
+            "generalBotSetupChannelId",
             "generalBotLogChannelId",
             "generalBotImportantChannelId",
             "generalWhoToPing",
-            "generalTargetName",
-            "generalBotDecoration"
+            "generalTargetName"
+            // "generalBotDecoration"
         };
         if (stepsWithDefaultButton.Contains(step.ConfigKey))
             cb.WithButton($"Use Default ({GetDefaultValuePreview(step.ConfigKey)})",
@@ -755,6 +756,15 @@ public class NotifierBot
         if (_endTime == null || DateTime.Now > _endTime) return true;
         return false;
     }
+    
+    public ulong GetGuildId(ulong channelId)
+    {
+        if (channelId == 0) return 0;
+
+        var channel = _client.GetChannel(channelId) as SocketGuildChannel;
+        return channel?.Guild.Id ?? 0;
+    }
+    
 }
 
 public enum TrackingOptionsChoice

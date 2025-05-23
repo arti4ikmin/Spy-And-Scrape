@@ -13,13 +13,13 @@ namespace SpyAndScrape
     {
         private readonly DiscordSocketClient _client;
         private readonly NotifierBot _notifierBot;
-        private readonly NotifierBot _notifierBotInstance;
+        //private readonly NotifierBot _notifierBotInstance;
         
         public BotCmds(DiscordSocketClient client, NotifierBot notifierBotInstance)
         {
             _client = client;
             _notifierBot = notifierBotInstance;
-            _notifierBotInstance = notifierBotInstance;
+            //_notifierBotInstance = notifierBotInstance;
             
             _client.Ready += OnReadyAsync;
             _client.SlashCommandExecuted += OnSlashCommandExecutedAsync;

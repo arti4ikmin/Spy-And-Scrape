@@ -1,7 +1,4 @@
-// Trackers/DiscordUsrTrack.cs
-using System;
 using System.Text;
-using System.Threading.Tasks;
 using Discord.WebSocket;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -172,15 +169,15 @@ public class DiscordUsrTrack
                     sb.AppendLine($"- **{fieldName}** was changed from `{obj["oldValue"]}` to `{obj["newValue"]}`.");
                 }
                 
-                // NOW THIS SHOULD BE EXCLUDED
-                else if (action == "added")
-                {
-                    sb.AppendLine($"- **{fieldName}** was added: `{obj["newValue"]}`");
-                }
-                else if (action == "deleted") // kinda strange if this happens, should happen only if discord themselves delete some attributes
-                {
-                    sb.AppendLine($"- **{fieldName}** was removed. Old value was: `{obj["oldValue"]}`");
-                }
+                // // NOW THIS SHOULD BE EXCLUDED
+                // else if (action == "added")
+                // {
+                //     sb.AppendLine($"- **{fieldName}** was added: `{obj["newValue"]}`");
+                // }
+                // else if (action == "deleted") // kinda strange if this happens, should happen only if discord themselves delete some attributes
+                // {
+                //     sb.AppendLine($"- **{fieldName}** was removed. Old value was: `{obj["oldValue"]}`");
+                // }
             }
             else // branch node, recurse deeper
             {

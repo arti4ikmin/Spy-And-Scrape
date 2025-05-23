@@ -10,7 +10,7 @@ public class NotifierBot
 {
     private readonly DiscordSocketClient _client;
     private BotCmds _botCommands;
-    private readonly HttpClient _httpClient;
+    //private readonly HttpClient _httpClient;
 
 // --- First Run Setup State ---
     private TrackingOptionsChoice _firstRun_TrackingChoice = TrackingOptionsChoice.None;
@@ -34,7 +34,7 @@ public class NotifierBot
         _client.Log += LogAsync;
         _client.Ready += OnClientReadyAsync;
 
-        _httpClient = new HttpClient();
+        //_httpClient = new HttpClient();
         _botCommands = new BotCmds(_client, this);
         AssignBotCommands(_botCommands);
     }

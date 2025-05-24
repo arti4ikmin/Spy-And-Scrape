@@ -16,6 +16,9 @@ public class JCmp
     {
         string fPth = GetFilePath(fName);
 
+        JObject newJ = JObject.Parse(newJContent);
+
+        // if true = new file
         if (!File.Exists(fPth))
         {
             JObject newResult = JObject.Parse(newJContent);
@@ -30,25 +33,21 @@ public class JCmp
 
         if (string.IsNullOrWhiteSpace(existingJContent))
         {
-            JObject newRes = JObject.Parse(newJContent);
-            return (true, new JObject
-            {
-                ["action"] = "new",
-                ["content"] = newRes
-            });
+            // treat as if old content was an empty obj
+            JObject changes = GetChanges(new JObject(), newJ);
+            return (changes.Count > 0, changes);
         }
 
         JObject existingJ = JObject.Parse(existingJContent);
-        JObject newJ = JObject.Parse(newJContent);
 
         if (JToken.DeepEquals(existingJ, newJ))
         {
             return (false, new JObject());
         }
 
-        JObject changes = GetChanges(existingJ, newJ);
+        JObject changesRes = GetChanges(existingJ, newJ);
 
-        return (true, changes);
+        return (changesRes.Count > 0, changesRes);
     }
     
     // oh god noones want to know how much I raged on this
@@ -57,6 +56,12 @@ public class JCmp
     {
         JObject res = new JObject();
 
+        // If tokens are same, no changes at this lvl nor deeper
+        if (JToken.DeepEquals(oldJ, newJ))
+        {
+            return res;
+        }
+
         if (oldJ.Type == JTokenType.Object && newJ.Type == JTokenType.Object)
         {
             var oldObj = (JObject)oldJ;
@@ -64,37 +69,44 @@ public class JCmp
 
             foreach (var property in oldObj.Properties())
             {
-                if (!newObj.ContainsKey(property.Name))
+                JToken newPropertyValue = newObj[property.Name];
+
+                if (newPropertyValue == null) // = deleted
                 {
                     res[property.Name] = new JObject
                     {
                         ["action"] = "deleted",
-                        ["value"] = property.Value
+                        ["oldValue"] = property.Value
                     };
                 }
-                else if (!JToken.DeepEquals(property.Value, newObj[property.Name]))
+                else // exists in both
                 {
-                    res[property.Name] = GetChanges(property.Value, newObj[property.Name]);
+                    JObject subChanges = GetChanges(property.Value, newPropertyValue);
+                    if (subChanges.Count > 0)
+                    {
+                        res[property.Name] = subChanges;
+                    }
                 }
             }
 
             foreach (var property in newObj.Properties())
             {
-                if (!oldObj.ContainsKey(property.Name))
+                if (oldObj[property.Name] == null) // = added
                 {
                     res[property.Name] = new JObject
                     {
                         ["action"] = "added",
-                        ["value"] = property.Value
+                        ["newValue"] = property.Value
                     };
                 }
             }
         }
         else if (oldJ.Type == JTokenType.Array && newJ.Type == JTokenType.Array)
         {
-            res = CompareArrays((JArray)oldJ, (JArray)newJ);
+            // should return an empty JObj if no itemlevel changes, calling context will after then decide, whether to include this arr field based on its emptiness
+            return CompareArrays((JArray)oldJ, (JArray)newJ);
         }
-        else if (!JToken.DeepEquals(oldJ, newJ))
+        else
         {
             res["action"] = "edited";
             res["oldValue"] = oldJ;
@@ -112,74 +124,87 @@ public class JCmp
         JArray deletedItems = new JArray();
         JArray editedItems = new JArray();
         var oldItemsDict = new Dictionary<string, JObject>();
-        var newItemsDict = new Dictionary<string, JObject>();
-
-        foreach (var item in oldArray.Cast<JObject>())
+        if (oldArray != null)
         {
-            string key = item["id"]?.ToString() ?? Guid.NewGuid().ToString();
-            oldItemsDict[key] = item;
-        }
-
-        foreach (var item in newArray.Cast<JObject>())
-        {
-            string key = item["id"]?.ToString() ?? Guid.NewGuid().ToString();
-            newItemsDict[key] = item;
-        }
-
-        foreach (var oldItem in oldItemsDict)
-        {
-            if (!newItemsDict.ContainsKey(oldItem.Key))
+            foreach (var itemToken in oldArray)
             {
-                deletedItems.Add(oldItem.Value);
+                if (itemToken is JObject item)
+                {
+                    string key = item["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                    oldItemsDict[key] = item;
+                }
             }
-            else if (!JToken.DeepEquals(oldItem.Value, newItemsDict[oldItem.Key]))
+        }
+
+        var newItemsDict = new Dictionary<string, JObject>();
+        if (newArray != null)
+        {
+            foreach (var itemToken in newArray)
+            {
+                if (itemToken is JObject item)
+                {
+                    string key = item["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                    newItemsDict[key] = item;
+                }
+            }
+        }
+
+        foreach (var oldEntry in oldItemsDict)
+        {
+            if (!newItemsDict.ContainsKey(oldEntry.Key))
+            {
+                deletedItems.Add(oldEntry.Value);
+            }
+            else if (!JToken.DeepEquals(oldEntry.Value, newItemsDict[oldEntry.Key]))
             {
                 editedItems.Add(new JObject
                 {
-                    ["id"] = oldItem.Key,
-                    ["oldValue"] = oldItem.Value,
-                    ["newValue"] = newItemsDict[oldItem.Key]
-                    
-                    //
-                    
+                    ["id"] = oldEntry.Key,
+                    ["oldValue"] = oldEntry.Value,
+                    ["newValue"] = newItemsDict[oldEntry.Key]
                 });
             }
         }
 
-        foreach (var newItem in newItemsDict)
+        foreach (var newEntry in newItemsDict)
         {
-            if (!oldItemsDict.ContainsKey(newItem.Key))
+            if (!oldItemsDict.ContainsKey(newEntry.Key))
             {
-                addedItems.Add(newItem.Value);
+                addedItems.Add(newEntry.Value);
             }
         }
 
+        bool hasChanges = false;
         if (addedItems.Count > 0)
         {
             result["addedItems"] = addedItems;
+            hasChanges = true;
         }
         if (deletedItems.Count > 0)
         {
             result["deletedItems"] = deletedItems;
+            hasChanges = true;
         }
         if (editedItems.Count > 0)
         {
             result["editedItems"] = editedItems;
+            hasChanges = true;
         }
 
-        
-        
-        if (addedItems.Count > 0 && deletedItems.Count == 0 && editedItems.Count == 0)
+        if (hasChanges)
         {
-            result["action"] = "added";
-        }
-        else if (deletedItems.Count > 0 && addedItems.Count == 0 && editedItems.Count == 0)
-        {
-            result["action"] = "deleted";
-        }
-        else if (editedItems.Count > 0 || addedItems.Count > 0 || deletedItems.Count > 0)
-        {
-            result["action"] = "edited";
+            if (addedItems.Count > 0 && deletedItems.Count == 0 && editedItems.Count == 0)
+            {
+                result["action"] = "added";
+            }
+            else if (deletedItems.Count > 0 && addedItems.Count == 0 && editedItems.Count == 0)
+            {
+                result["action"] = "deleted";
+            }
+            else
+            {
+                result["action"] = "edited";
+            }
         }
         
 

@@ -18,7 +18,6 @@ public class DiscordUsrTrack
 
     public async Task StartTrackingUsr(NotifierBot notifier)
     {
-        Console.WriteLine("Got permission to start");
         _notifierBot = notifier;
         _jsonFileHandler = new JFH();
         _comparer = new JCmp();
@@ -86,24 +85,32 @@ public class DiscordUsrTrack
 
         if (hasChanges)
         {
-            Console.WriteLine("[DiscordUsrTrack] changes");
-            
-            
-            string action = changes["action"].ToString();
-            if (changes.Count == 0 || action == "new" || action == "deleted")
+            Console.WriteLine("[DiscordUsrTrack] changes: \n" + changes.ToString(Formatting.Indented) + "\n\nRetrived: \n" + fullProfile.ToString(Formatting.Indented));
+
+            JToken actionToken = changes["action"];
+            if (actionToken != null && actionToken.ToString() == "new")
             {
-                Console.WriteLine("[DiscordUsrTrack] got cursed changes:");
-                Console.WriteLine(changes.ToString());
-                Console.WriteLine("[DiscordUsrTrack] Old json: \n" + fullProfile.ToString() );
-                
+                Console.WriteLine($"[DiscordUsrTrack] New profile data detected in {ProfileFileName}");
+                _notifierBot.SendBotMessage($"Initial profile data ({JReader.CurrentConfig.generalTargetName}) captured.", 1);
                 _jsonFileHandler.CreateOverwriteJFile(ProfileFileName, newJsonData);
                 return;
             }
             
+            // if (changes.Count == 0) {
+            //     Console.WriteLine("[DiscordUsrTrack] 'hasChanges' was true, but the 'changes' object is empty, should be impossible but comes to light sometimes, ts might indicate a noncontent update or an issue in JCmp. Updating file anyway");
+            //     _jsonFileHandler.CreateOverwriteJFile(ProfileFileName, newJsonData);
+            //     return;
+            // }
+
+            Console.WriteLine("[DiscordUsrTrack] format begin ");
             string fChanges = await FormatChangesAsync(changes);
             if (!string.IsNullOrWhiteSpace(fChanges))
             {
-                _notifierBot.SendBotMessage(fChanges, 2);
+                _notifierBot.SendBotMessage(fChanges, JReader.CurrentConfig.discordTrackingLogLevel);
+            }
+            else
+            {
+                Console.WriteLine("[DiscordUsrTrack] No formatted changes to report, or it failed");
             }
             _jsonFileHandler.CreateOverwriteJFile(ProfileFileName, newJsonData);
         }
@@ -159,27 +166,56 @@ public class DiscordUsrTrack
     {
         if (token is JObject obj)
         {
-            if (obj.ContainsKey("action")) // leaf node
+            string currentFieldName = prefix.TrimEnd('.');
+            if (obj.ContainsKey("action"))
             {
                 string action = obj["action"].ToString();
-                string fieldName = prefix.TrimEnd('.');
-                
-                if (action == "edited")
+
+                if (action == "edited" && obj.ContainsKey("oldValue") && obj.ContainsKey("newValue"))
                 {
-                    sb.AppendLine($"- **{fieldName}** was changed from `{obj["oldValue"]}` to `{obj["newValue"]}`.");
+                    sb.AppendLine($"- **{currentFieldName}** was changed from `{obj["oldValue"]}` to `{obj["newValue"]}`.");
                 }
+                else if (action == "added" && (obj.ContainsKey("newValue")/* || obj.ContainsKey("value")*/))
+                {
+                    sb.AppendLine($"- **{currentFieldName}** was added: `{obj["value"]}`.");
+                }
+                else if (action == "deleted" && (obj.ContainsKey("oldValue")/* || obj.ContainsKey("value")*/))
+                {
+                    sb.AppendLine($"- **{currentFieldName}** was removed. (Old val was: `{obj["value"]}`.)");
+                }
+
                 
-                // // NOW THIS SHOULD BE EXCLUDED
-                // else if (action == "added")
-                // {
-                //     sb.AppendLine($"- **{fieldName}** was added: `{obj["newValue"]}`");
-                // }
-                // else if (action == "deleted") // kinda strange if this happens, should happen only if discord themselves delete some attributes
-                // {
-                //     sb.AppendLine($"- **{fieldName}** was removed. Old value was: `{obj["oldValue"]}`");
-                // }
+                else if (obj.ContainsKey("addedItems") || obj.ContainsKey("deletedItems") || obj.ContainsKey("editedItems"))
+                {
+                    if (obj["addedItems"] is JArray added && added.Count > 0)
+                    {
+                        sb.AppendLine($"- In **{currentFieldName}**, items were added:");
+                        foreach (var item in added) {
+                            string itemDesc = item["id"]?.ToString() ?? item["name"]?.ToString() ?? item.ToString(Formatting.None);
+                            sb.AppendLine($"  - Added: `{itemDesc}`");
+                        }
+                    }
+                    if (obj["deletedItems"] is JArray deleted && deleted.Count > 0)
+                    {
+                        sb.AppendLine($"- In **{currentFieldName}**, items were removed:");
+                         foreach (var item in deleted) {
+                            string itemDesc = item["id"]?.ToString() ?? item["name"]?.ToString() ?? item.ToString(Formatting.None);
+                            sb.AppendLine($"  - Removed: `{itemDesc}`");
+                        }
+                    }
+                    if (obj["editedItems"] is JArray editedArr && editedArr.Count > 0)
+                    {
+                        sb.AppendLine($"- In **{currentFieldName}**, items were modified:");
+                        foreach (JObject editedItemDetail in editedArr.Cast<JObject>())
+                        {
+                            string itemId = editedItemDetail["id"]?.ToString() ?? "Unknown ID";
+                            // TODO: recursively call ParseChanges on editedItemDetail["oldValue"] vs editedItemDetail["newValue"]
+                            sb.AppendLine($"  - Item `{itemId}` changed. New state: `{editedItemDetail["newValue"]?.ToString(Formatting.None)}`");
+                        }
+                    }
+                }
             }
-            else // branch node, recurse deeper
+            else
             {
                 foreach (var prop in obj.Properties())
                 {

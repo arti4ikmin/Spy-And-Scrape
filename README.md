@@ -3,8 +3,6 @@
 
 This project is a bot managable trough discord, which tracks certain actions of a selected user and reports them in a customizable channel.
 
-#### This is a part of the future arti core addons to track someone else's activity. Arti core will be entirely used to manage your account and make life easier
-
 # PROJECT IS IN EARLY DEV
 ## How-to
 ### Requirements
@@ -19,7 +17,7 @@ This project is a bot managable trough discord, which tracks certain actions of 
 - After you should input the channel id the bot has access to (use admin perms if you dont want hassle)
 - Once all data is entered and you see 
     "[time] Gateway     Connected",
-    "Bot is connected"
+    "Bot is connected" (in the console_output.txt)
     
     -> You shoud recive a starting message in the channel youve entered the id for
 - use /startinfo for a little more context, and /configchange to change the values for you
@@ -48,7 +46,7 @@ Following options are aviable:
 | **Important Channel ID**     | Channel ID for sending important notifications                                 | `generalBotImportantChannelId`             | `ulong`               |
 | **Who to Ping**               | Defines who the bot should ping for notifications                              | `generalWhoToPing`                         | `string`              |
 | **Track Discord Activity**   | True or false tracking of Discord messages (more soon) (required to track)      | `trackDiscord`                             | `bool`                |
-| **Discord Tracking Username**| Username used for tracking Discord activity (required to track)                 | `discordTrackingUsername`                  | `string`              |
+| **Discord Tracking Id**     | Id used for tracking Discord activity (required to track)                        | `discordTrackingId`                       | `ulong`              |
 | **Discord Tracking Token**   | Token for authenticating Discord tracking (user account) (required to track)   | `discordTrackingToken`                     | `string`              |
 | **Discord Log Level**        | Defines the log level for Discord tracking (also determines if ping) (1-3)      | `discordTrackingLogLevel`                  | `int`                 |
 | **Track Roblox Activity**    | Enables or disables tracking of Roblox activity (required to track)              | `trackRoblox`                              | `bool`                |
@@ -73,7 +71,6 @@ Following options are aviable:
 - (more services ?)
 - try to apply changes without having to /restart
 - more commands for control
-- better config change clarity 
 
 
 

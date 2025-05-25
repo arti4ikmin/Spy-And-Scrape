@@ -35,7 +35,7 @@ public class DiscordUsrTrack
             await TrackProfileAsync();
 
             
-            await Task.Delay(new Random().Next(18000, 30000));
+            await Task.Delay(new Random().Next(JReader.CurrentConfig.generalBotTimeout * 6, JReader.CurrentConfig.generalBotTimeout * 10));
         }
     }
 

@@ -95,7 +95,7 @@ public class RobloxTrack
                 Console.WriteLine($"Friends count changed: {cmpRes.Item1} \n Changes: \n " + cmpRes.Item2.ToString(Newtonsoft.Json.Formatting.Indented) + "\n");
                 
                 Unexpectedactionjmp:
-                TrackFriends();
+                    TrackFriends();
             }
             _jsonFileHndlr.CreateOverwriteJFile("friendscount.json", res);
             //_requestor.Dispose();
@@ -199,8 +199,7 @@ public class RobloxTrack
                 }
                 
                 _notifierBot.SendBotMessage($"Your target **added** these to their friends: \n " +
-                                           $"{urlAddedUsr}" + "\n " +
-                                           " --EXPERIMENTAL FEATURE-- ");
+                                           $"{urlAddedUsr}" + "\n ");
                 
                 Console.WriteLine("added friends completed");
             }
@@ -217,8 +216,7 @@ public class RobloxTrack
                 }
                 
                 _notifierBot.SendBotMessage($"Your target **removed** following people from their friends list: \n " +
-                                           $"{urlDeletedUsr}" + "\n " +
-                                           " --EXPERIMENTAL FEATURE-- ");
+                                           $"{urlDeletedUsr}" + "\n ");
                 
                 Console.WriteLine("removed friends completed");
             }
@@ -246,8 +244,7 @@ public class RobloxTrack
                 _notifierBot.SendBotMessage($"Your target **removed** following people from their friends list: \n " +
                                            $"{urlDeldUsers}" + "\n " +
                                            $"And **added** these to their friends: \n " +
-                                           $"{urlAddedUsers}" + "\n " +
-                                           " --EXPERIMENTAL FEATURE-- ");
+                                           $"{urlAddedUsers}" + "\n ");
                 
                 Console.WriteLine("edited friends completed");
             }

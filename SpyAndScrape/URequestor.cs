@@ -11,7 +11,7 @@ namespace SpyAndScrape
             _httpClient = new HttpClient();
         }
 
-        public async Task<string> GetAsync(string url, Dictionary<string, string> queryParams = null, Dictionary<string, string> headers = null)
+        public async Task<string> GetAsync(string url, Dictionary<string, string>? queryParams = null, Dictionary<string, string> headers = null)
         {
 
             // construct with query parameters if provided
@@ -39,7 +39,7 @@ namespace SpyAndScrape
         }
 
         // post UNIVERSAL
-        public async Task<string> PostAsync(string url, string rawJBody = null, Dictionary<string, string> headers = null)
+        public async Task<string> PostAsync(string url, string? rawJBody = null, Dictionary<string, string>? headers = null)
         {
 
             HttpContent content = null;

@@ -53,7 +53,7 @@ namespace SpyAndScrape
             // [STAThread] is critical
             if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
             {
-                string result = null;
+                string? result = null;
                 var t = new Thread(() =>
                 {
                     Application.EnableVisualStyles();
@@ -68,7 +68,7 @@ namespace SpyAndScrape
                 t.SetApartmentState(ApartmentState.STA);
                 t.Start();
                 t.Join();
-                return result;
+                return result ?? string.Empty;
             }
             else
             {
@@ -324,18 +324,14 @@ namespace SpyAndScrape
 
             if (!minimal) // full shutdown if not an early exit due to config
             {
-                if (_dcMsgs != null)
-                {
-                    Console.WriteLine("Stopping Discord message tracking...");
-                    // nonblocking StopTrackingAsync
-                    // await _dcMsgs.StopTrackingAsync();
-                     _dcMsgs.StopTrackingAsync().Wait(TimeSpan.FromSeconds(5)); // can risk deadlock
-                }
-                if (_bot != null)
-                {
-                     Console.WriteLine("Shutting down Discord bot...");
-                     _bot.ShutdownBot().Wait(TimeSpan.FromSeconds(5));
-                }
+
+                Console.WriteLine("Stopping Discord message tracking...");
+                // nonblocking StopTrackingAsync
+                // await _dcMsgs.StopTrackingAsync();
+                 _dcMsgs.StopTrackingAsync().Wait(TimeSpan.FromSeconds(5)); // can risk deadlock
+
+                 Console.WriteLine("Shutting down Discord bot...");
+                 _bot.ShutdownBot().Wait(TimeSpan.FromSeconds(5));
             }
             Console.WriteLine("Core shutdown tasks completed");
         }
@@ -382,7 +378,7 @@ namespace SpyAndScrape
             _origConsoleOutput = Console.Out;
             try
             {
-                string logDirectory = Path.GetDirectoryName(lFP);
+                string? logDirectory = Path.GetDirectoryName(lFP);
                 if (!string.IsNullOrEmpty(logDirectory) && !Directory.Exists(logDirectory))
                 {
                     Directory.CreateDirectory(logDirectory);
@@ -395,10 +391,8 @@ namespace SpyAndScrape
             }
             catch (Exception ex)
             {
-                if (_origConsoleOutput != null)
-                {
-                    Console.SetOut(_origConsoleOutput);
-                }
+                Console.SetOut(_origConsoleOutput);
+                
                 _isLogging = false;
                 _logWriter?.Dispose();
                 _logWriter = null;

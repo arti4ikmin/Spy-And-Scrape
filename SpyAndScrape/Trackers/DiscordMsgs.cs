@@ -111,9 +111,9 @@ internal class DiscordMessageData
 public class DiscordMsgs
 {
     private readonly NotifierBot _notifierBot;
-    private ClientWebSocket _gatewaySocket;
-    private CancellationTokenSource _cancellationTokenSource;
-    private Task _heartbeatTask;
+    private ClientWebSocket? _gatewaySocket;
+    private CancellationTokenSource? _cancellationTokenSource;
+    private Task? _heartbeatTask;
     
     private int _heartbeatIntervalMs;
     private int? _lastSequenceNumber; // nullable for init state
@@ -141,7 +141,7 @@ public class DiscordMsgs
         _discordToken = JReader.CurrentConfig.discordTrackingToken;
         _trackingId = JReader.CurrentConfig.discordTrackingUsrId;
 
-        if (_trackingId == 0 || _trackingId == null || _trackingId == 1)
+        if (_trackingId == 0 /*|| _trackingId == null*/ || _trackingId == 1)
         {
             Console.WriteLine("[DiscordMsgs] Token or tracking id is not configured. Discord tracking will not start");
             _notifierBot.SendBotMessage("Discord tracking token or id not set in config.json. Tracking disabled", 3, false);
@@ -389,7 +389,7 @@ public class DiscordMsgs
                 await Task.Delay(5000, token);
             }
         }
-         Console.WriteLine("[DiscordMsgs] hb loop ended");
+        Console.WriteLine("[DiscordMsgs] hb loop ended");
     }
 
     private Task SendHbAsync(CancellationToken token)
@@ -451,9 +451,7 @@ public class DiscordMsgs
         
         Console.WriteLine($"[DiscordMsgs] Tracked message from {discordMsg.Author.Username}: {discordMsg.Content.Substring(0, Math.Min(50, discordMsg.Content.Length))}{(discordMsg.Content.Length > 50 ? "..." : "")}");
 
-        _notifierBot.SendBotMessage(
-            messageContent.ToString(),
-            JReader.CurrentConfig.discordTrackingLogLevel - 1);
+        _notifierBot.SendBotMessage(messageContent.ToString(), JReader.CurrentConfig.discordTrackingLogLevel - 1);
 
     }
     

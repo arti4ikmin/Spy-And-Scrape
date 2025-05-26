@@ -15,12 +15,12 @@ public class NotifierBot
 // --- First Run Setup State ---
     private TrackingOptionsChoice _firstRun_TrackingChoice = TrackingOptionsChoice.None;
     private List<SetupStep> _firstRun_PendingSteps = new();
-    private ulong _firstRun_SetupChannelId = 0;
+    private ulong _firstRun_SetupChannelId;
     private IUserMessage _firstRun_LastPromptMessage;
 
-    private TaskCompletionSource<bool> _botReadyCompletionSource = new();
+    private readonly TaskCompletionSource<bool> _botReadyCompletionSource = new();
 
-    private DateTime? _endTime = null;
+    private DateTime? _endTime;
 
 
     public NotifierBot()
@@ -39,7 +39,7 @@ public class NotifierBot
         AssignBotCommands(_botCommands);
     }
 
-    public void AssignBotCommands(BotCmds commands)
+    private void AssignBotCommands(BotCmds commands)
     {
         _botCommands = commands;
         _client.ButtonExecuted += HandleSetupButtonInteractionAsync;
@@ -60,7 +60,7 @@ public class NotifierBot
         await _client.LogoutAsync();
     }
 
-    private Task LogAsync(LogMessage log)
+    private static Task LogAsync(LogMessage log)
     {
         Console.WriteLine($"[BotLog] {log.ToString()}");
         return Task.CompletedTask;
@@ -100,8 +100,8 @@ public class NotifierBot
         Console.WriteLine($"[FirstRunSetup] Initiating on channel {setupChannelId}.");
 
         var componentBuilder = new ComponentBuilder()
-            .WithButton("Track Discord Messages", "firstrun_choice_discord", ButtonStyle.Primary)
-            .WithButton("Track Roblox Activity", "firstrun_choice_roblox", ButtonStyle.Primary)
+            .WithButton("Track Discord Messages", "firstrun_choice_discord")
+            .WithButton("Track Roblox Activity", "firstrun_choice_roblox")
             .WithButton("Track Both", "firstrun_choice_both", ButtonStyle.Success);
 
         _firstRun_LastPromptMessage = await channel.SendMessageAsync(
@@ -178,7 +178,7 @@ public class NotifierBot
                 return;
             }
 
-            object defaultValueToSet;
+            object? defaultValueToSet;
             var defaultConfig = new JReader.Config(); // Fresh instance for true defaults
 
             switch (configKey)
@@ -268,8 +268,7 @@ public class NotifierBot
             });
         }
 
-        if (_firstRun_TrackingChoice == TrackingOptionsChoice.Roblox ||
-            _firstRun_TrackingChoice == TrackingOptionsChoice.Both)
+        if (_firstRun_TrackingChoice == TrackingOptionsChoice.Roblox || _firstRun_TrackingChoice == TrackingOptionsChoice.Both)
             _firstRun_PendingSteps.Add(new SetupStep
             {
                 ConfigKey = "robloxTrackingUserId",
@@ -280,7 +279,7 @@ public class NotifierBot
                 Validator = (input) =>
                 {
                     var isValid = ulong.TryParse(input, out var val) && val != 0;
-                    return (isValid, isValid ? null : "Invalid User ID. Cant be a zero", isValid ? (object)val : null);
+                    return (isValid, isValid ? null : "Invalid User ID. Cant be a zero", isValid ? val : null);
                 }
             });
 
@@ -294,7 +293,7 @@ public class NotifierBot
             Validator = (input) =>
             {
                 var isValid = ulong.TryParse(input, out var val) && val != 0;
-                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? (object)val : null);
+                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? val : null);
             }
         });
         _firstRun_PendingSteps.Add(new SetupStep
@@ -307,7 +306,7 @@ public class NotifierBot
             Validator = (input) =>
             {
                 var isValid = ulong.TryParse(input, out var val) && val != 0;
-                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? (object)val : null);
+                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? val : null);
             }
         });
         _firstRun_PendingSteps.Add(new SetupStep
@@ -320,7 +319,7 @@ public class NotifierBot
             Validator = (input) =>
             {
                 var isValid = ulong.TryParse(input, out var val) && val != 0;
-                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? (object)val : null);
+                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? val : null);
             }
         });
         _firstRun_PendingSteps.Add(new SetupStep
@@ -398,18 +397,22 @@ public class NotifierBot
             completionMessage += "The bot is now fully operational";
 
 
-            if (followupInteraction != null && followupInteraction.HasResponded &&
-                !(followupInteraction is SocketModal))
+            if (followupInteraction != null && followupInteraction.HasResponded && !(followupInteraction is SocketModal))
+            {
                 await followupInteraction.FollowupAsync(completionMessage, ephemeral: false);
+            }
             else if (_firstRun_LastPromptMessage != null)
+            {
                 await _firstRun_LastPromptMessage.ModifyAsync(m =>
                 {
                     m.Content = completionMessage;
                     m.Components = null;
                 });
+            }
             else
+            {
                 await channel.SendMessageAsync(completionMessage);
-
+            }
             JReader.IsNewCfgJustCreated = false; // globally
             Console.WriteLine("[FirstRunSetup] setup done");
             _firstRun_SetupChannelId = 0;
@@ -455,7 +458,7 @@ public class NotifierBot
     private string GetDefaultValuePreview(string configKey)
     {
         var defaultConfig = new JReader.Config();
-        object defaultValueObj = null;
+        object? defaultValueObj = null;
 
         switch (configKey)
         {
@@ -510,19 +513,17 @@ public class NotifierBot
         }
 
         object parsedValue = inputValue;
-        if (step.Validator != null)
-        {
-            var validationResult = step.Validator(inputValue);
-            if (!validationResult.isValid)
-            {
-                await modal.RespondAsync(
-                    $"Invalid input for '{step.ModalTitle}': {validationResult.errorMessage}\nPlease click '{step.ButtonText}' again to retry",
-                    ephemeral: true);
-                return;
-            }
 
-            parsedValue = validationResult.parsedValue;
+        var validationResult = step.Validator(inputValue);
+        if (!validationResult.isValid)
+        {
+            await modal.RespondAsync(
+                $"Invalid input for '{step.ModalTitle}': {validationResult.errorMessage}\nPlease click '{step.ButtonText}' again to retry",
+                ephemeral: true);
+            return;
         }
+
+        parsedValue = validationResult.parsedValue;
 
         var success = JReader.OverwriteConfigValue(configKey, parsedValue);
         if (success)
@@ -552,7 +553,7 @@ public class NotifierBot
 
         if (JReader.IsNewCfgJustCreated && _firstRun_SetupChannelId != 0 && effectiveChannelId == _firstRun_SetupChannelId)
             Console.WriteLine($"[SendBotMessage] First run setup active on channel {_firstRun_SetupChannelId}");
-        // cecide whether to return or still attempt sending (risks cluttering setup)
+        // decide whether to return or still attempt sending (risks cluttering setup)
         // return;
         // For now, we'll let it potentially send, but maybe log the deferral
         // setup msgs are sent using different methods tied to the interaction context anyway

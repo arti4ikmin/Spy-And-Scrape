@@ -7,6 +7,7 @@ using SpyAndScrape.FileSystem;
 
 namespace SpyAndScrape.Trackers;
 
+#pragma warning disable 4014
 public class DiscordUsrTrack
 {
     private JFH _jsonFileHandler;
@@ -117,7 +118,7 @@ public class DiscordUsrTrack
     }
 
     // decided to divide into 3 levels, 1 is log only important, 2 most useful, 3 all
-    private JObject FilterJsonByLogLvl(JObject fullJson)
+    private static JObject FilterJsonByLogLvl(JObject fullJson)
     {
         int logLevel = JReader.CurrentConfig.discordTrackingLogLevel;
         if (logLevel >= 3)
@@ -152,7 +153,7 @@ public class DiscordUsrTrack
         return filtered;
     }
 
-    private async Task<string> FormatChangesAsync(JObject changes)
+    private static async Task<string> FormatChangesAsync(JObject changes)
     {
         var sb = new StringBuilder();
         sb.AppendLine("**Discord Profile Update Detected:**\n");
@@ -162,7 +163,7 @@ public class DiscordUsrTrack
         return sb.ToString();
     }
 
-    private async Task ParseChanges(JToken token, StringBuilder sb, string prefix)
+    private static async Task ParseChanges(JToken token, StringBuilder sb, string prefix)
     {
         if (token is JObject obj)
         {

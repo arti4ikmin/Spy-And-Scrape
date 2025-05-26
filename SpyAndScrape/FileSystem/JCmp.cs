@@ -69,7 +69,7 @@ public class JCmp
 
             foreach (var property in oldObj.Properties())
             {
-                JToken newPropertyValue = newObj[property.Name];
+                JToken? newPropertyValue = newObj[property.Name];
 
                 if (newPropertyValue == null) // = deleted
                 {
@@ -124,30 +124,28 @@ public class JCmp
         JArray deletedItems = new JArray();
         JArray editedItems = new JArray();
         var oldItemsDict = new Dictionary<string, JObject>();
-        if (oldArray != null)
+
+        foreach (var itemToken in oldArray)
         {
-            foreach (var itemToken in oldArray)
+            if (itemToken is JObject item)
             {
-                if (itemToken is JObject item)
-                {
-                    string key = item["id"]?.ToString() ?? Guid.NewGuid().ToString();
-                    oldItemsDict[key] = item;
-                }
+                string key = item["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                oldItemsDict[key] = item;
             }
         }
+        
 
         var newItemsDict = new Dictionary<string, JObject>();
-        if (newArray != null)
+
+        foreach (var itemToken in newArray)
         {
-            foreach (var itemToken in newArray)
+            if (itemToken is JObject item)
             {
-                if (itemToken is JObject item)
-                {
-                    string key = item["id"]?.ToString() ?? Guid.NewGuid().ToString();
-                    newItemsDict[key] = item;
-                }
+                string key = item["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                newItemsDict[key] = item;
             }
         }
+        
 
         foreach (var oldEntry in oldItemsDict)
         {

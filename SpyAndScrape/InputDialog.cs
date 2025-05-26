@@ -25,7 +25,7 @@ public class InputDialog : Form
         MaximizeBox = false;
         ShowInTaskbar = true;
         ClientSize = new Size(400, 120);
-        Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, ((byte)(0)));
+        Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
 
 
         labelPrompt = new Label

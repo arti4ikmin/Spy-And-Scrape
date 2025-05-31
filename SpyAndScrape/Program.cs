@@ -1,6 +1,6 @@
 ﻿// MIT License
 //
-// Copyright (c) 2024 Arti
+// Copyright (c) 2024-2025 Arti
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
 // to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
@@ -70,18 +70,17 @@ namespace SpyAndScrape
                 t.Join();
                 return result ?? string.Empty;
             }
-            else
+
+            Application.EnableVisualStyles();
+            using (var dialog = new InputDialog(title, prompt, isPass))
             {
-                Application.EnableVisualStyles();
-                using (var dialog = new InputDialog(title, prompt, isPass))
+                if (dialog.ShowDialog() == DialogResult.OK)
                 {
-                    if (dialog.ShowDialog() == DialogResult.OK)
-                    {
-                        return dialog.InputValue;
-                    }
-                    return null;
+                    return dialog.InputValue;
                 }
+                return null;
             }
+            
         }
 
         //
@@ -124,7 +123,7 @@ namespace SpyAndScrape
                 StartLogging();
                 Console.WriteLine("SPY AND SCRAPE: starting...");
 
-                InitNotifyIcon();
+                // InitNotifyIcon();
 
                 _httpClient = new HttpClient();
                 AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
@@ -246,76 +245,72 @@ namespace SpyAndScrape
             }
         }
 
-        private static void InitNotifyIcon()
-        {
-            _notifyIcon = new NotifyIcon();
-            try
-            {
-                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico");
-                if (File.Exists(iconPath))
-                {
-                    _notifyIcon.Icon = new Icon(iconPath);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[NotifyIcon] err loading icon: {ex.Message}");
-            }
-
-            _notifyIcon.Text = "SpyAndScrape";
-            _notifyIcon.Visible = true;
-
-            var contextMenu = new ContextMenuStrip();
-            contextMenu.Items.Add("Open Log File", null, OnOpenLogClickedHandler);
-            contextMenu.Items.Add("Restart", null, OnRestartClickedHandler);
-            contextMenu.Items.Add(new ToolStripSeparator());
-            contextMenu.Items.Add("Exit", null, OnExitClickedHandler);
-
-            _notifyIcon.ContextMenuStrip = contextMenu;
-
-            // _notifyIcon.DoubleClick += (sender, args) => OnOpenLogClickedHandler(sender, args);
-        }
-        private static void OnOpenLogClickedHandler(object sender, EventArgs e)
-        {
-            string logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "console_output.txt");
-            Process.Start(new ProcessStartInfo(logFilePath) { UseShellExecute = true });
-        }
-
-        private static void OnRestartClickedHandler(object sender, EventArgs e)
-        {
-            DialogResult result = MessageBox.Show("Are you sure you want to restart SpyAndScrape?", "SpyAndScrape - Restart Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            if (result == DialogResult.Yes)
-            {
-                Console.WriteLine("[NotifyIcon] Restart requested by user.");
-                _notifyIcon?.Dispose();
-                _notifyIcon = null;
-
-                string exePath = Process.GetCurrentProcess().MainModule.FileName;
-                try
-                {
-                    Process.Start(exePath, "delay");
-                    PerformShutdownTasks(minimal: true);
-                    StopLogging();
-                    Environment.Exit(0);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Failed to restart the application: {ex.Message}", "SpyAndScrape - Restart Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    if (_notifyIcon != null) InitNotifyIcon();
-                }
-            }
-        }
-
-        private static void OnExitClickedHandler(object sender, EventArgs e)
-        {
-            DialogResult result = MessageBox.Show("Are you sure you want to exit SpyAndScrape?", "SpyAndScrape - Exit Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            if (result == DialogResult.Yes)
-            {
-                Console.WriteLine("[NotifyIcon] Exit requested by user");
-                // main fin block will handle PerformShutdownTasks, etc
-                Environment.Exit(0);
-            }
-        }
+        // private static void InitNotifyIcon()
+        // {
+        //     _notifyIcon = new NotifyIcon();
+        //
+        //     string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico");
+        //     if (File.Exists(iconPath))
+        //     {
+        //         _notifyIcon.Icon = new Icon(iconPath);
+        //     }
+        //     
+        //
+        //
+        //     _notifyIcon.Text = "SpyAndScrape";
+        //     _notifyIcon.Visible = true;
+        //
+        //     var contextMenu = new ContextMenuStrip();
+        //     contextMenu.Items.Add("Open Log File", null, OnOpenLogClickedHandler);
+        //     contextMenu.Items.Add("Restart", null, OnRestartClickedHandler);
+        //     contextMenu.Items.Add(new ToolStripSeparator());
+        //     contextMenu.Items.Add("Exit", null, OnExitClickedHandler);
+        //
+        //     _notifyIcon.ContextMenuStrip = contextMenu;
+        //
+        //     // _notifyIcon.DoubleClick += (sender, args) => OnOpenLogClickedHandler(sender, args);
+        // }
+        // private static void OnOpenLogClickedHandler(object sender, EventArgs e)
+        // {
+        //     string logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "console_output.txt");
+        //     Process.Start(new ProcessStartInfo(logFilePath) { UseShellExecute = true });
+        // }
+        //
+        // private static void OnRestartClickedHandler(object sender, EventArgs e)
+        // {
+        //     DialogResult result = MessageBox.Show("Are you sure you want to restart SpyAndScrape?", "SpyAndScrape - Restart Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        //     if (result == DialogResult.Yes)
+        //     {
+        //         Console.WriteLine("[NotifyIcon] Restart requested by user.");
+        //         _notifyIcon?.Dispose();
+        //         _notifyIcon = null;
+        //
+        //         string exePath = Process.GetCurrentProcess().MainModule.FileName;
+        //         try
+        //         {
+        //             Process.Start(exePath, "delay");
+        //             PerformShutdownTasks(minimal: true);
+        //             StopLogging();
+        //             Environment.Exit(0);
+        //         }
+        //         catch (Exception ex)
+        //         {
+        //             MessageBox.Show($"Failed to restart the application: {ex.Message}", "SpyAndScrape - Restart Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //             if (_notifyIcon != null) InitNotifyIcon();
+        //         }
+        //     }
+        // }
+        //
+        // private static void OnExitClickedHandler(object sender, EventArgs e)
+        // {
+        //     DialogResult result = MessageBox.Show("Are you sure you want to exit SpyAndScrape?", "SpyAndScrape - Exit Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        //     if (result == DialogResult.Yes)
+        //     {
+        //         Console.WriteLine("[NotifyIcon] Exit requested by user");
+        //         // main fin block will handle PerformShutdownTasks, etc
+        //         Environment.Exit(0);
+        //     }
+        // }
 
         private static void PerformShutdownTasks(bool minimal = false)
         {

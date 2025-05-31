@@ -66,7 +66,6 @@ Following options are aviable:
 
 ## TODO (future plans)
 
-- Add tracking of the discord account itelf (bio, name, etc)
 - Add elevated notifications for deletion of messages
 - (more services ?)
 - try to apply changes without having to /restart

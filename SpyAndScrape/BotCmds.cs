@@ -25,6 +25,7 @@ public class BotCmds
         _client.SlashCommandExecuted += OnSlashCommandExecutedAsync;
         _client.SelectMenuExecuted += CfgMenuHandler; 
         _client.ModalSubmitted += ModalSubmitted;
+        _client.SelectMenuExecuted += _notifierBot.HandleSetupServiceSelectionMenuAsync; // setup service selection
     }
 
     private async Task OnReadyAsync()
@@ -65,6 +66,10 @@ public class BotCmds
                 .WithName("restart")
                 .WithDescription("Restarts the running program, use when you update config while running.");
 
+            var reconfigureCommand = new SlashCommandBuilder()
+                .WithName("reconfigure")
+                .WithDescription("Rerun setup for specific bot features or settings.");
+
 
             try
             {
@@ -75,6 +80,7 @@ public class BotCmds
                 await guild.CreateApplicationCommandAsync(timeOutSelf.Build());
                 await guild.CreateApplicationCommandAsync(listConfigCommand.Build());
                 await guild.CreateApplicationCommandAsync(restart.Build());
+                await guild.CreateApplicationCommandAsync(reconfigureCommand.Build());
                 Console.WriteLine($"cmds created in: {guild.Name}");
 
             }
@@ -98,7 +104,7 @@ public class BotCmds
                 .WithColor(new Discord.Color(
                     5814783)) // clr is a decimal value (5814783 is the decimal so called 'equivalent' of the hex color - yes I am speaking in great English)
                 .AddField("Commands:",
-                    "Following commands are available right now:\n** /startinfo ** - Starts the welcome message as well as some information.\n** /configchange ** - Edits the config.json through the bot by overwriting. \n ** /listconfig ** - Lists all config settings and their current values. \n ** /debug ** - Saves the full console output and sends it as a file. \n **/timeoutself** Times the bots logging out for specified time, if it gets annoying \n")
+                    "Following commands are available right now:\n** /startinfo ** - Starts the welcome message as well as some information.\n** /configchange ** - Edits the config.json through the bot by overwriting. \n ** /listconfig ** - Lists all config settings and their current values. \n ** /debug ** - Saves the full console output and sends it as a file. \n **/timeoutself** Times the bots logging out for specified time, if it gets annoying \n **/reconfigure** - Re-run interactive setup for specific features.\n")
                 .WithFooter(
                     "Users must adhere to all applicable laws and regulations when using the Software. The Software must not be used for any illegal activities, including but not limited to stalking or harassment. \n")
                 .WithThumbnailUrl(JReader.CurrentConfig.generalBotDecoration);
@@ -159,7 +165,7 @@ public class BotCmds
             var builder = new ComponentBuilder()
                 .WithSelectMenu(menuBuilder);
             
-            _client.SelectMenuExecuted += CfgMenuHandler;
+            //_client.SelectMenuExecuted += CfgMenuHandler; // was regged in constructor
             
             await cmd.RespondAsync("\tPlease select the item to change in your config: ", components: builder.Build());
         }
@@ -225,6 +231,7 @@ public class BotCmds
                     if (int.TryParse(time.Substring(0, time.Length - 1), out int hours))
                     {
                         timeMin = hours * 60;
+                        cmd.RespondAsync($"Bot will be timed out for {hours} hour(s).");
                         _notifierBot.PauseMessages(timeMin);
                     }
                     else
@@ -272,6 +279,16 @@ public class BotCmds
             Environment.Exit(0);
         }
 
+        if (cmd.CommandName == "reconfigure")
+        {
+            if (JReader.IsNewCfgJustCreated && _notifierBot.IsInteractiveSetupActive())
+            {
+                await cmd.RespondAsync("Firstrun setup is currently active, complete it first.", ephemeral: true);
+                return;
+            }
+            await _notifierBot.InitiateReconfigurationAsync(cmd);
+        }
+
     }
     
     private async Task CfgMenuHandler(SocketMessageComponent arg)
@@ -284,7 +301,7 @@ public class BotCmds
                 .WithCustomId($"updateConfig_{selectedKey}")
                 .AddTextInput("Enter the new value:", "inputValue", placeholder: "Type your value here");
 
-            _client.ModalSubmitted += ModalSubmitted;
+            // _client.ModalSubmitted += ModalSubmitted;
             await arg.RespondWithModalAsync(mb.Build());
             // await arg.Message.DeleteAsync();
             // maybe auto msgs cleanup soon

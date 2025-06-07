@@ -10,36 +10,184 @@ public class NotifierBot
 {
     private readonly DiscordSocketClient _client;
     private BotCmds _botCommands;
-    //private readonly HttpClient _httpClient;
 
-// --- First Run Setup State ---
-    private TrackingOptionsChoice _firstRun_TrackingChoice = TrackingOptionsChoice.None;
-    private List<SetupStep> _firstRun_PendingSteps = new();
-    private ulong _firstRun_SetupChannelId;
-    private IUserMessage _firstRun_LastPromptMessage;
+    private List<string> _activeSetup_ServicesBeingConfigured = new();
+    private List<SetupStep> _activeSetup_PendingSteps = new();
+    private ulong _activeSetup_ChannelId;
+    private IUserMessage? _activeSetup_LastPromptMessage;
+    private SocketInteraction? _activeSetup_LastInteraction;
+    private bool _isInteractiveSetupActive;
+
+
+    private List<TrackableService> _availableServices;
+
 
     private readonly TaskCompletionSource<bool> _botReadyCompletionSource = new();
 
     private DateTime? _endTime;
 
-
+    public DiscordSocketClient Client => _client;
+    
     public NotifierBot()
     {
         _client = new DiscordSocketClient(new DiscordSocketConfig
         {
-            GatewayIntents =
-                GatewayIntents.Guilds | GatewayIntents.GuildMessages |
-                GatewayIntents.MessageContent
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent | GatewayIntents.GuildMessageReactions
         });
         _client.Log += LogAsync;
         _client.Ready += OnClientReadyAsync;
-
         //_httpClient = new HttpClient();
-        _botCommands = new BotCmds(_client, this);
-        AssignBotCommands(_botCommands);
+
+        InitializeAvailableServices();
     }
 
-    private void AssignBotCommands(BotCmds commands)
+    private void InitializeAvailableServices()
+    {
+        _availableServices = new List<TrackableService>
+        {
+            new()
+            {
+                Id = "core_settings",
+                Name = "Core Bot Settings",
+                EnableConfigKey = null,
+                IsCoreSetting = true,
+                SetupSteps = new List<SetupStep>
+                {
+                    new()
+                    {
+                        ConfigKey = "generalBotSetupChannelId",
+                        PromptMessage = "Provide the **Channel ID** where setup messages (like this one) will be sent:",
+                        ButtonText = "Set Setup Channel ID",
+                        ModalTitle = "Setup Channel ID",
+                        ModalInputLabel = "Channel ID (numbers only)",
+                        Validator = (input) =>
+                        {
+                            var isValid = ulong.TryParse(input, out var val) && val != 0;
+                            return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", val);
+                        }
+                    },
+                    new()
+                    {
+                        ConfigKey = "generalBotLogChannelId",
+                        PromptMessage = "Please provide the **Channel ID** for regular bot activity logs:",
+                        ButtonText = "Set Log Channel ID",
+                        ModalTitle = "Log Channel ID",
+                        ModalInputLabel = "Channel ID (numbers only)",
+                        Validator = (input) =>
+                        {
+                            var isValid = ulong.TryParse(input, out var val) && val != 0;
+                            return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", val);
+                        }
+                    },
+                    new()
+                    {
+                        ConfigKey = "generalBotImportantChannelId",
+                        PromptMessage =
+                            "Please provide the **Channel ID** for important notifications (mentions included):",
+                        ButtonText = "Set Important Channel ID",
+                        ModalTitle = "Important Channel ID",
+                        ModalInputLabel = "Channel ID (numbers only)",
+                        Validator = (input) =>
+                        {
+                            var isValid = ulong.TryParse(input, out var val) && val != 0;
+                            return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", val);
+                        }
+                    },
+                    new()
+                    {
+                        ConfigKey = "generalWhoToPing",
+                        PromptMessage =
+                            "Please provide the **User ID, Role ID, or general ping** (`@here`, `@everyone`) for important notifications:",
+                        ButtonText = "Set Ping Target",
+                        ModalTitle = "Ping Target",
+                        ModalInputLabel = "ID or Ping (e.g., <@123456789012345678> or @here)"
+                    },
+                    new()
+                    {
+                        ConfigKey = "generalTargetName",
+                        PromptMessage =
+                            "Please provide the **Name** of the target being tracked (visual only; what the bot sends):",
+                        ButtonText = "Set Target Name",
+                        ModalTitle = "Target Name",
+                        ModalInputLabel = "Name"
+                    }
+                    // new SetupStep
+                    // {
+                    //     ConfigKey = "generalBotDecoration",
+                    //     PromptMessage = "Optional: Provide a **URL for a small image** to use in the footer of embeds (visual only):",
+                    //     ButtonText = "Set Decoration Image URL",
+                    //     ModalTitle = "Decoration Image URL",
+                    //     ModalInputLabel = "Image URL (optional)",
+                    //     ModalPlaceholder = "Leave blank or enter URL",
+                    //     Validator = (input) =>
+                    //     {
+                    //         if (string.IsNullOrWhiteSpace(input)) return (true, null, input);
+                    //         var isValid = Uri.TryCreate(input, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+                    //         return (isValid, isValid ? null : "Invalid URL format", input);
+                    //     }
+                    // }
+                }
+            },
+            new()
+            {
+                Id = "discord_tracking",
+                Name = "Discord Activity Tracking",
+                EnableConfigKey = "trackDiscord",
+                SetupSteps = new List<SetupStep>
+                {
+                    new()
+                    {
+                        ConfigKey = "discordTrackingUsrId",
+                        PromptMessage = "Provide the **Discord User ID** for message and profile tracking:",
+                        ButtonText = "Set Discord User ID",
+                        ModalTitle = "Discord User ID",
+                        ModalInputLabel = "User ID (numbers only)",
+                        Validator = (input) =>
+                        {
+                            var isValid = ulong.TryParse(input, out var val) && val != 0;
+                            return (isValid, isValid ? null : "Invalid User ID. Cant be a zero", val);
+                        }
+                    },
+                    new()
+                    {
+                        ConfigKey = "discordTrackingToken",
+                        PromptMessage =
+                            "Provide the **Discord User Token** for message and profile tracking.\n*(This is a sensitive value. The bot will only use it to listen for messages and fetch profile data from the specified user.)*",
+                        ButtonText = "Set Discord Token",
+                        ModalTitle = "Discord User Token",
+                        ModalInputLabel = "Token",
+                        ModalInputStyle = TextInputStyle.Paragraph,
+                        ModalPlaceholder = "Enter the user token"
+                    }
+                }
+            },
+            new()
+            {
+                Id = "roblox_tracking",
+                Name = "Roblox Activity Tracking",
+                EnableConfigKey = "trackRoblox",
+                SetupSteps = new List<SetupStep>
+                {
+                    new()
+                    {
+                        ConfigKey = "robloxTrackingUserId",
+                        PromptMessage = "Provide the **Roblox User ID** for activity tracking:",
+                        ButtonText = "Set Roblox User ID",
+                        ModalTitle = "Roblox User ID",
+                        ModalInputLabel = "User ID",
+                        Validator = (input) =>
+                        {
+                            var isValid = ulong.TryParse(input, out var val) && val != 0;
+                            return (isValid, isValid ? null : "Invalid User ID. Cant be a zero", val);
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+
+    public void AssignBotCommands(BotCmds commands)
     {
         _botCommands = commands;
         _client.ButtonExecuted += HandleSetupButtonInteractionAsync;
@@ -83,39 +231,132 @@ public class NotifierBot
         return _botReadyCompletionSource.Task;
     }
 
+    public bool IsInteractiveSetupActive()
+    {
+        return _isInteractiveSetupActive;
+    }
+
 
     public async Task InitiateFirstRunSetupAsync(ulong setupChannelId)
     {
-        if (!JReader.IsNewCfgJustCreated) return; // guard
+        if (!JReader.IsNewCfgJustCreated) return;
 
-        _firstRun_SetupChannelId = setupChannelId;
+        _isInteractiveSetupActive = true;
+        _activeSetup_ChannelId = setupChannelId;
+        _activeSetup_ServicesBeingConfigured.Clear();
+        _activeSetup_PendingSteps.Clear();
+        _activeSetup_LastInteraction = null;
+
+
         var channel = _client.GetChannel(setupChannelId) as ISocketMessageChannel;
         if (channel == null)
         {
             Console.WriteLine($"[FirstRunSetup] Invalid setup channel ID: {setupChannelId}. Setup aborted.");
-            JReader.IsNewCfgJustCreated = false;
+            JReader.IsNewCfgJustCreated = false; // normal opr if channel is bad
+            _isInteractiveSetupActive = false;
             return;
         }
 
         Console.WriteLine($"[FirstRunSetup] Initiating on channel {setupChannelId}.");
 
-        var componentBuilder = new ComponentBuilder()
-            .WithButton("Track Discord Messages", "firstrun_choice_discord")
-            .WithButton("Track Roblox Activity", "firstrun_choice_roblox")
-            .WithButton("Track Both", "firstrun_choice_both", ButtonStyle.Success);
+        var menuBuilder = new SelectMenuBuilder()
+            .WithPlaceholder("Select services to set up")
+            .WithCustomId("setup_service_selection_firstrun")
+            .WithMinValues(1)
+            .WithMaxValues(_availableServices.Count(s =>
+                !s.IsCoreSetting));
 
-        _firstRun_LastPromptMessage = await channel.SendMessageAsync(
+        foreach (var service in
+                 _availableServices.Where(s => !s.IsCoreSetting)) // Don't let user select core, it's implied
+            menuBuilder.AddOption(service.Name, service.Id, $"Configure {service.Name}");
+
+        var componentBuilder = new ComponentBuilder().WithSelectMenu(menuBuilder);
+
+        _activeSetup_LastPromptMessage = await channel.SendMessageAsync(
             "**Welcome to SpyAndScrape FirstRun Setup!**\n" +
             "This bot needs some init configuration to get started\n\n" +
             "Please choose which services you'd like to track:",
             components: componentBuilder.Build());
     }
 
+    public async Task InitiateReconfigurationAsync(SocketSlashCommand cmd)
+    {
+        if (_isInteractiveSetupActive)
+        {
+            await cmd.RespondAsync("Another setup process is already active. Please complete or cancel it first.",
+                ephemeral: true);
+            return;
+        }
+
+        _isInteractiveSetupActive = true;
+        _activeSetup_ChannelId = cmd.Channel.Id;
+        _activeSetup_ServicesBeingConfigured.Clear();
+        _activeSetup_PendingSteps.Clear();
+        _activeSetup_LastInteraction = cmd;
+
+
+        var menuBuilder = new SelectMenuBuilder()
+            .WithPlaceholder("Select features to reconfigure")
+            .WithCustomId("setup_service_selection_reconfig")
+            .WithMinValues(1)
+            .WithMaxValues(_availableServices.Count);
+
+        foreach (var service in _availableServices)
+            menuBuilder.AddOption(service.Name, service.Id, $"Configure {service.Name}");
+
+        var componentBuilder = new ComponentBuilder().WithSelectMenu(menuBuilder);
+
+
+        await cmd.RespondAsync(
+            "**Bot Reconfiguration**\n" +
+            "Select the features or settings you want to reconfigure:",
+            components: componentBuilder.Build(),
+            ephemeral: true // MAYBE
+        );
+        _activeSetup_LastPromptMessage = null;
+    }
+
+
+    public async Task HandleSetupServiceSelectionMenuAsync(SocketMessageComponent component)
+    {
+        if (!component.Data.CustomId.StartsWith("setup_service_selection_")) return;
+
+        if (!_isInteractiveSetupActive || component.Channel.Id != _activeSetup_ChannelId)
+        {
+            await component.RespondAsync("This selection is part of an active setup process and cant be used outside of it, in this channel, or the process has expired",
+                ephemeral: true);
+            return;
+        }
+
+        _activeSetup_LastInteraction = component;
+
+        _activeSetup_ServicesBeingConfigured = component.Data.Values.ToList();
+
+        var selectedServiceNames = _activeSetup_ServicesBeingConfigured
+            .Select(id => _availableServices.FirstOrDefault(s => s.Id == id)?.Name)
+            .Where(name => name != null)
+            .ToList();
+
+        var updateMessage =
+            $"Chosen to configure: **{string.Join(", ", selectedServiceNames)}**, proceed";
+
+        if (component.Data.CustomId == "setup_service_selection_firstrun" && _activeSetup_LastPromptMessage != null)
+            await component.UpdateAsync(p =>
+            {
+                p.Content = updateMessage;
+                p.Components = null;
+            });
+        else 
+            await component.RespondAsync(updateMessage, ephemeral: true);
+        PopulateSetupStepsForActiveConfiguration();
+        await ProcessNextSetupStepAsync();
+    }
+
+
     private async Task HandleSetupButtonInteractionAsync(SocketMessageComponent component)
     {
-        if (!component.Data.CustomId.StartsWith("firstrun_")) return;
-        if (_firstRun_SetupChannelId == 0 || component.Channel.Id != _firstRun_SetupChannelId ||
-            !JReader.IsNewCfgJustCreated)
+        if (!component.Data.CustomId.StartsWith("setup_")) return;
+        if (!_isInteractiveSetupActive || component.Channel.Id != _activeSetup_ChannelId)
         {
             await component.RespondAsync(
                 "This button is part of the FirstRun setup process and cant be used outside of it or in this channel",
@@ -123,41 +364,22 @@ public class NotifierBot
             return;
         }
 
+        _activeSetup_LastInteraction = component;
+
 
         var choice = component.Data.CustomId;
         var handled = false;
 
-        if (choice.StartsWith("firstrun_choice_"))
+        if (choice.StartsWith("setup_setval_"))
         {
             handled = true;
-            switch (choice)
-            {
-                case "firstrun_choice_discord": _firstRun_TrackingChoice = TrackingOptionsChoice.Discord; break;
-                case "firstrun_choice_roblox": _firstRun_TrackingChoice = TrackingOptionsChoice.Roblox; break;
-                case "firstrun_choice_both": _firstRun_TrackingChoice = TrackingOptionsChoice.Both; break;
-            }
-
-            if (handled)
-            {
-                await component.UpdateAsync(p =>
-                {
-                    p.Content = $"Great! You've chosen to track: **{_firstRun_TrackingChoice}**. Let's configure that.";
-                    p.Components = null; // buttons removal
-                });
-                PopulateSetupSteps();
-                await ProcessNextSetupStepAsync(component);
-            }
-        }
-        else if (choice.StartsWith("firstrun_setval_"))
-        {
-            handled = true;
-            var configKey = choice.Replace("firstrun_setval_", "");
-            var step = _firstRun_PendingSteps.FirstOrDefault(s => s.ConfigKey == configKey);
+            var configKey = choice.Replace("setup_setval_", "");
+            var step = _activeSetup_PendingSteps.FirstOrDefault(s => s.ConfigKey == configKey);
             if (step != null)
             {
                 var modal = new ModalBuilder()
                     .WithTitle(step.ModalTitle)
-                    .WithCustomId($"firstrun_modal_{configKey}")
+                    .WithCustomId($"setup_modal_{configKey}")
                     .AddTextInput(step.ModalInputLabel, "input_value", step.ModalInputStyle, step.ModalPlaceholder);
                 await component.RespondWithModalAsync(modal.Build());
             }
@@ -166,11 +388,11 @@ public class NotifierBot
                 await component.RespondAsync("Err: Setup step not found.", ephemeral: true);
             }
         }
-        else if (choice.StartsWith("firstrun_setdefault_"))
+        else if (choice.StartsWith("setup_setdefault_"))
         {
             handled = true;
-            var configKey = choice.Replace("firstrun_setdefault_", "");
-            var step = _firstRun_PendingSteps.FirstOrDefault(s => s.ConfigKey == configKey);
+            var configKey = choice.Replace("setup_setdefault_", "");
+            var step = _activeSetup_PendingSteps.FirstOrDefault(s => s.ConfigKey == configKey);
 
             if (step == null)
             {
@@ -179,20 +401,21 @@ public class NotifierBot
             }
 
             object? defaultValueToSet;
-            var defaultConfig = new JReader.Config(); // Fresh instance for true defaults
+            var defaultConfig = new JReader.Config();
 
             switch (configKey)
             {
                 case "generalBotLogChannelId":
+                    
                 case "generalBotImportantChannelId":
                     if (JReader.CurrentConfig.generalBotSetupChannelId != 0)
                     {
                         defaultValueToSet = JReader.CurrentConfig.generalBotSetupChannelId;
                     }
-                    else // Fallback if setup channel ID isn't somehow set (should be by this point)
+                    else
                     {
                         var prop = typeof(JReader.Config).GetProperty(configKey);
-                        defaultValueToSet = prop?.GetValue(defaultConfig); // Default to its own default
+                        defaultValueToSet = prop?.GetValue(defaultConfig);
                     }
 
                     break;
@@ -225,10 +448,11 @@ public class NotifierBot
 
             if (success)
             {
-                _firstRun_PendingSteps.Remove(step);
+                _activeSetup_PendingSteps.Remove(step);
+                // Ephemeral response to the button click
                 await component.RespondAsync(
-                    $"Default value for '{step.ModalTitle}' has been set to `{defaultValueToSet}`", ephemeral: true);
-                await ProcessNextSetupStepAsync(component);
+                    $"Default value for '{step.ModalTitle}' has been set to `{defaultValueToSet}`.", ephemeral: true);
+                await ProcessNextSetupStepAsync();
             }
             else
             {
@@ -240,170 +464,124 @@ public class NotifierBot
         if (!handled && !component.HasResponded) await component.RespondAsync("Unknown setup action", ephemeral: true);
     }
 
-    private void PopulateSetupSteps()
+    private void PopulateSetupStepsForActiveConfiguration()
     {
-        _firstRun_PendingSteps.Clear();
-
-
-        if (_firstRun_TrackingChoice == TrackingOptionsChoice.Discord ||
-            _firstRun_TrackingChoice == TrackingOptionsChoice.Both)
+        _activeSetup_PendingSteps.Clear();
+        if (JReader.IsNewCfgJustCreated || _activeSetup_ServicesBeingConfigured.Contains("core_settings"))
         {
-            _firstRun_PendingSteps.Add(new SetupStep
-            {
-                ConfigKey = "discordTrackingUsrId",
-                PromptMessage = "Provide the **Discord Id** for message tracking:",
-                ButtonText = "Set Discord Id",
-                ModalTitle = "Discord Id",
-                ModalInputLabel = "Id"
-            });
-            _firstRun_PendingSteps.Add(new SetupStep
-            {
-                ConfigKey = "discordTrackingToken",
-                PromptMessage = "Provide the **Discord User Token** for message tracking.\n*(This is a sensitive value. The bot will only use it to listen for messages from the specified user.)*",
-                ButtonText = "Set Discord Token",
-                ModalTitle = "Discord User Token",
-                ModalInputLabel = "Token",
-                ModalInputStyle = TextInputStyle.Paragraph,
-                ModalPlaceholder = "Enter the user token"
-            });
+            var coreService = _availableServices.FirstOrDefault(s => s.Id == "core_settings");
+            if (coreService != null) _activeSetup_PendingSteps.AddRange(coreService.SetupSteps);
         }
 
-        if (_firstRun_TrackingChoice == TrackingOptionsChoice.Roblox || _firstRun_TrackingChoice == TrackingOptionsChoice.Both)
-            _firstRun_PendingSteps.Add(new SetupStep
-            {
-                ConfigKey = "robloxTrackingUserId",
-                PromptMessage = "Provide the **Roblox User ID** for activity tracking:",
-                ButtonText = "Set Roblox User ID",
-                ModalTitle = "Roblox User ID",
-                ModalInputLabel = "User ID",
-                Validator = (input) =>
-                {
-                    var isValid = ulong.TryParse(input, out var val) && val != 0;
-                    return (isValid, isValid ? null : "Invalid User ID. Cant be a zero", isValid ? val : null);
-                }
-            });
+        foreach (var serviceId in _activeSetup_ServicesBeingConfigured)
+        {
+            var service = _availableServices.FirstOrDefault(s => s.Id == serviceId);
+            if (service != null && service.Id != "core_settings")
+                _activeSetup_PendingSteps.AddRange(service.SetupSteps);
+        }
 
-        _firstRun_PendingSteps.Add(new SetupStep
-        {
-            ConfigKey = "generalBotSetupChannelId",
-            PromptMessage = "Provide the **Channel ID** where setup messages (like this one) will be sent:",
-            ButtonText = "Set Setup Channel ID",
-            ModalTitle = "Setup Channel ID",
-            ModalInputLabel = "Channel ID (numbers only)",
-            Validator = (input) =>
-            {
-                var isValid = ulong.TryParse(input, out var val) && val != 0;
-                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? val : null);
-            }
-        });
-        _firstRun_PendingSteps.Add(new SetupStep
-        {
-            ConfigKey = "generalBotLogChannelId",
-            PromptMessage = "Please provide the **Channel ID** for regular bot activity logs:",
-            ButtonText = "Set Log Channel ID",
-            ModalTitle = "Log Channel ID",
-            ModalInputLabel = "Channel ID (numbers only)",
-            Validator = (input) =>
-            {
-                var isValid = ulong.TryParse(input, out var val) && val != 0;
-                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? val : null);
-            }
-        });
-        _firstRun_PendingSteps.Add(new SetupStep
-        {
-            ConfigKey = "generalBotImportantChannelId",
-            PromptMessage = "Please provide the **Channel ID** for important notifications (mentions included):",
-            ButtonText = "Set Important Channel ID",
-            ModalTitle = "Important Channel ID",
-            ModalInputLabel = "Channel ID (numbers only)",
-            Validator = (input) =>
-            {
-                var isValid = ulong.TryParse(input, out var val) && val != 0;
-                return (isValid, isValid ? null : "Invalid Channel ID. Cant be a zero", isValid ? val : null);
-            }
-        });
-        _firstRun_PendingSteps.Add(new SetupStep
-        {
-            ConfigKey = "generalWhoToPing",
-            PromptMessage = "Please provide the **User ID, Role ID, or general ping** (`@here`, `@everyone`) for important notifications:",
-            ButtonText = "Set Ping Target",
-            ModalTitle = "Ping Target",
-            ModalInputLabel = "ID or Ping (e.g., <@123456789012345678> or @here)"
-        });
-        _firstRun_PendingSteps.Add(new SetupStep
-        {
-            ConfigKey = "generalTargetName",
-            PromptMessage = "Please provide the **Name** of the target being tracked (visual only; what the bot sends):",
-            ButtonText = "Set Target Name",
-            ModalTitle = "Target Name",
-            ModalInputLabel = "Name"
-        });
-        // _firstRun_PendingSteps.Add(new SetupStep
-        // {
-        //     ConfigKey = "generalBotDecoration",
-        //     PromptMessage = "Optional: Provide a **URL for a small image** to use in the footer of embeds (visual only):",
-        //     ButtonText = "Set Decoration Image URL",
-        //     ModalTitle = "Decoration Image URL",
-        //     ModalInputLabel = "Image URL (optional)",
-        //     ModalPlaceholder = "Leave blank or enter URL",
-        //     Validator = (input) =>
-        //     {
-        //         if (string.IsNullOrWhiteSpace(input)) return (true, null, input);
-        //         var isValid = Uri.TryCreate(input, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
-        //         return (isValid, isValid ? null : "Invalid URL format", input);
-        //     }
-        // });
+
+        
+        
+        
+        
+        
+        _activeSetup_PendingSteps = _activeSetup_PendingSteps.DistinctBy(s => s.ConfigKey).ToList();
     }
 
-    private async Task ProcessNextSetupStepAsync(SocketInteraction followupInteraction = null)
-    {
-        if (_firstRun_SetupChannelId == 0 || !JReader.IsNewCfgJustCreated) return;
 
-        var channel = _client.GetChannel(_firstRun_SetupChannelId) as ISocketMessageChannel;
+    private async Task ProcessNextSetupStepAsync()
+    {
+        if (!_isInteractiveSetupActive) return;
+
+        var channel = _client.GetChannel(_activeSetup_ChannelId) as ISocketMessageChannel;
         if (channel == null)
         {
-            Console.WriteLine("[FirstRunSetup] Channel now null during step processing (tf??? Id assume its deleted but whatever)");
-            JReader.IsNewCfgJustCreated = false;
-            _firstRun_SetupChannelId = 0;
+            Console.WriteLine("[InteractiveSetup] Channel now null during step processing (probably deleted)");
+            ResetInteractiveSetupState();
             return;
         }
 
-        if (!_firstRun_PendingSteps.Any())
+        var isEphemeralContext = _activeSetup_LastInteraction is SocketSlashCommand || (_activeSetup_LastInteraction is SocketMessageComponent msgComp);
+        if (_activeSetup_LastInteraction is SocketModal)
+            isEphemeralContext = true;
+
+
+        if (!_activeSetup_PendingSteps.Any())
         {
-            var completionMessage = "**FirstRun Setup Complete!**\n";
-            if (_firstRun_TrackingChoice != TrackingOptionsChoice.None)
+            var completionMessage = "";
+            if (JReader.IsNewCfgJustCreated)
             {
-                completionMessage += $"Tracking for **{_firstRun_TrackingChoice}** is now configured with the essential settings.\n";
-                if (_firstRun_TrackingChoice == TrackingOptionsChoice.Discord || _firstRun_TrackingChoice == TrackingOptionsChoice.Both)
+                completionMessage = "**FirstRun Setup Complete!**\n";
+                var configuredServiceNames = new List<string>();
+
+                foreach (var serviceId in _activeSetup_ServicesBeingConfigured)
                 {
-                    JReader.OverwriteConfigValue("trackDiscord", true);
-                }
-                if (_firstRun_TrackingChoice == TrackingOptionsChoice.Roblox || _firstRun_TrackingChoice == TrackingOptionsChoice.Both)
-                {
-                    JReader.OverwriteConfigValue("trackRoblox", true);
+                    var service = _availableServices.FirstOrDefault(s => s.Id == serviceId);
+                    if (service != null)
+                    {
+                        configuredServiceNames.Add(service.Name);
+                        if (!string.IsNullOrEmpty(service.EnableConfigKey))
+                            JReader.OverwriteConfigValue(service.EnableConfigKey, true);
+                    }
                 }
 
                 await JReader.GetStartingJsonAsync();
-                completionMessage += $"Monitoring is active for Discord: `{JReader.CurrentConfig.trackDiscord}` and Roblox: `{JReader.CurrentConfig.trackRoblox}`.\n";
+
+                if (configuredServiceNames.Any())
+                    completionMessage += $"Configured: **{string.Join(", ", configuredServiceNames)}**.\n";
+                completionMessage += $"Core settings have also been configured\n";
+                completionMessage +=
+                    $"Monitoring is active for Discord: `{JReader.CurrentConfig.trackDiscord}` and Roblox: `{JReader.CurrentConfig.trackRoblox}` (and any other enabled services).\n";
+                completionMessage +=
+                    "You can adjust these and other settings using `/configchange` or `/reconfigure`.\n\n";
+                completionMessage += "The bot is now fully operational.";
 
                 JReader.IsNewCfgJustCreated = false;
+                Program.StartTrackersAfterSetup();
             }
             else
             {
-                completionMessage += "No tracking options were selected for setup. You can enable tracking later via cmds(/configchange) or by editing `config.json`.\n";
+                var reconfiguredServiceNames = new List<string>();
+                foreach (var serviceId in _activeSetup_ServicesBeingConfigured)
+                {
+                    var service = _availableServices.FirstOrDefault(s => s.Id == serviceId);
+                    if (service != null)
+                    {
+                        reconfiguredServiceNames.Add(service.Name);
+                        if (!string.IsNullOrEmpty(service.EnableConfigKey))
+                        {
+                            Console.WriteLine($"[InteractiveSetup] Reconfiguration of {service.Name} completed. Setting {service.EnableConfigKey} to true.");
+                            JReader.OverwriteConfigValue(service.EnableConfigKey, true);
+                        }
+                    }
+                }
+                await JReader.GetStartingJsonAsync();
+
+                completionMessage = "**Reconfiguration done**\n";
+                completionMessage += "Selected settings have been updated.\n";
+                if (reconfiguredServiceNames.Any())
+                    completionMessage += $"Reconfigured: **{string.Join(", ", reconfiguredServiceNames)}**.\n";
+                completionMessage +=
+                    "You may need to restart the bot for some changes to take full effect if they involve tracker reinitialization (e.g. Discord Token change).";
             }
 
-            completionMessage += "You can adjust these and other settings using the `/configchange` cmd or by directly editing `config.json` and restarting the bot\n\n";
-            completionMessage += "The bot is now fully operational";
 
-
-            if (followupInteraction != null && followupInteraction.HasResponded && !(followupInteraction is SocketModal))
+            if (_activeSetup_LastInteraction != null && _activeSetup_LastInteraction.HasResponded &&
+                !(_activeSetup_LastInteraction is SocketModal))
             {
-                await followupInteraction.FollowupAsync(completionMessage, ephemeral: false);
+                if (isEphemeralContext || _activeSetup_LastPromptMessage == null)
+                    await _activeSetup_LastInteraction.FollowupAsync(completionMessage, ephemeral: true);
+                else if (_activeSetup_LastPromptMessage != null)
+                    await _activeSetup_LastPromptMessage.ModifyAsync(m =>
+                    {
+                        m.Content = completionMessage;
+                        m.Components = null;
+                    });
             }
-            else if (_firstRun_LastPromptMessage != null)
+            else if (_activeSetup_LastPromptMessage != null)
             {
-                await _firstRun_LastPromptMessage.ModifyAsync(m =>
+                await _activeSetup_LastPromptMessage.ModifyAsync(m =>
                 {
                     m.Content = completionMessage;
                     m.Components = null;
@@ -411,16 +589,17 @@ public class NotifierBot
             }
             else
             {
-                await channel.SendMessageAsync(completionMessage);
+                _activeSetup_LastPromptMessage = await channel.SendMessageAsync(completionMessage);
             }
-            JReader.IsNewCfgJustCreated = false; // globally
-            Console.WriteLine("[FirstRunSetup] setup done");
-            _firstRun_SetupChannelId = 0;
+
+            Console.WriteLine("[InteractiveSetup] setup done");
+            ResetInteractiveSetupState();
             return;
         }
 
-        var step = _firstRun_PendingSteps.First();
-        var cb = new ComponentBuilder().WithButton(step.ButtonText, $"firstrun_setval_{step.ConfigKey}", ButtonStyle.Success);
+        var step = _activeSetup_PendingSteps.First();
+        var cb = new ComponentBuilder().WithButton(step.ButtonText, $"setup_setval_{step.ConfigKey}",
+            ButtonStyle.Success);
 
         var stepsWithDefaultButton = new List<string>
         {
@@ -433,26 +612,51 @@ public class NotifierBot
         };
         if (stepsWithDefaultButton.Contains(step.ConfigKey))
             cb.WithButton($"Use Default ({GetDefaultValuePreview(step.ConfigKey)})",
-                $"firstrun_setdefault_{step.ConfigKey}", ButtonStyle.Secondary, row: 1); // Add to a new row
-
-        // is last msg exists and belongs to bot, otherwise send a new one
-        var canModifyLastMessage = _firstRun_LastPromptMessage != null && _firstRun_LastPromptMessage.Author.Id == _client.CurrentUser.Id && _firstRun_LastPromptMessage.Channel.Id == _firstRun_SetupChannelId;
+                $"setup_setdefault_{step.ConfigKey}", ButtonStyle.Secondary, row: 1);
 
 
-        if (followupInteraction != null && followupInteraction.HasResponded && !(followupInteraction is SocketModal))
+        if (_activeSetup_LastInteraction != null && _activeSetup_LastInteraction.HasResponded &&
+            !(_activeSetup_LastInteraction is SocketModal))
         {
-            // if we are following up a button click that has already been responded to (updated or deferred)
-            _firstRun_LastPromptMessage = await followupInteraction.FollowupAsync(step.PromptMessage, components: cb.Build(), ephemeral: false);
+            if (isEphemeralContext ||
+                _activeSetup_LastPromptMessage == null)
+            {
+                await _activeSetup_LastInteraction.FollowupAsync(step.PromptMessage, components: cb.Build(),
+                    ephemeral: isEphemeralContext);
+                _activeSetup_LastPromptMessage =
+                    null;
+            }
+            else if (_activeSetup_LastPromptMessage != null)
+            {
+                await _activeSetup_LastPromptMessage.ModifyAsync(m =>
+                {
+                    m.Content = step.PromptMessage;
+                    m.Components = cb.Build();
+                });
+            }
         }
-        else if (canModifyLastMessage) await _firstRun_LastPromptMessage.ModifyAsync(m =>
+        else if (_activeSetup_LastPromptMessage != null && _activeSetup_LastPromptMessage.Author.Id == _client.CurrentUser.Id && _activeSetup_LastPromptMessage.Channel.Id == _activeSetup_ChannelId)
         {
-            m.Content = step.PromptMessage;
-            m.Components = cb.Build();
-        });
+            await _activeSetup_LastPromptMessage.ModifyAsync(m =>
+            {
+                m.Content = step.PromptMessage;
+                m.Components = cb.Build();
+            });
+        }
         else
         {
-            _firstRun_LastPromptMessage = await channel.SendMessageAsync(step.PromptMessage, components: cb.Build());
+            _activeSetup_LastPromptMessage = await channel.SendMessageAsync(step.PromptMessage, components: cb.Build());
         }
+    }
+
+    private void ResetInteractiveSetupState()
+    {
+        _isInteractiveSetupActive = false;
+        _activeSetup_ChannelId = 0;
+        _activeSetup_PendingSteps.Clear();
+        _activeSetup_ServicesBeingConfigured.Clear();
+        _activeSetup_LastPromptMessage = null;
+        _activeSetup_LastInteraction = null;
     }
 
     private string GetDefaultValuePreview(string configKey)
@@ -464,7 +668,17 @@ public class NotifierBot
         {
             case "generalBotLogChannelId":
             case "generalBotImportantChannelId":
-                defaultValueObj = JReader.CurrentConfig.generalBotSetupChannelId != 0 ? JReader.CurrentConfig.generalBotSetupChannelId.ToString() : "Use Setup Channel";
+                var setupChannelIdForDefault = JReader.CurrentConfig.generalBotSetupChannelId;
+                if (setupChannelIdForDefault != 0)
+                {
+                    defaultValueObj = setupChannelIdForDefault.ToString();
+                }
+                else
+                {
+                    var prop = typeof(JReader.Config).GetProperty(configKey);
+                    if (prop != null) defaultValueObj = prop.GetValue(defaultConfig);
+                }
+
                 break;
             default:
                 var property = typeof(JReader.Config).GetProperty(configKey);
@@ -473,30 +687,25 @@ public class NotifierBot
         }
 
         var preview = defaultValueObj?.ToString() ?? "N/A";
-        if (preview.Length > 20)
-        {
-            preview = preview.Substring(0, 17) + "...";
-        }
-        if (string.IsNullOrWhiteSpace(preview))
-        {
-            preview = "[empty]";
-        }
+        if (preview.Length > 20) preview = preview.Substring(0, 17) + "...";
+        if (string.IsNullOrWhiteSpace(preview)) preview = "[empty]";
         return preview;
     }
 
     private async Task HandleSetupModalInteractionAsync(SocketModal modal)
     {
-        if (!modal.Data.CustomId.StartsWith("firstrun_modal_")) return;
-        // if the interaction is from the designated setup channel + setup is active
-        if (_firstRun_SetupChannelId == 0 || modal.Channel.Id != _firstRun_SetupChannelId || !JReader.IsNewCfgJustCreated)
+        if (!modal.Data.CustomId.StartsWith("setup_modal_")) return;
+        if (!_isInteractiveSetupActive || modal.Channel.Id != _activeSetup_ChannelId)
         {
             await modal.RespondAsync(
-                "This modal is part of the FirstRun setup process and cant be used outside of it or in this channel",
+                "This modal is part of an active setup process and cannot be used outside of it, in this channel, or the process has expired.",
                 ephemeral: true);
             return;
         }
 
-        var configKey = modal.Data.CustomId.Replace("firstrun_modal_", "");
+        _activeSetup_LastInteraction = modal;
+
+        var configKey = modal.Data.CustomId.Replace("setup_modal_", "");
         var inputValue = modal.Data.Components.FirstOrDefault(c => c.CustomId == "input_value")?.Value;
         if (inputValue == null)
         {
@@ -505,16 +714,20 @@ public class NotifierBot
         }
 
 
-        var step = _firstRun_PendingSteps.FirstOrDefault(s => s.ConfigKey == configKey);
+        var step = _activeSetup_PendingSteps.FirstOrDefault(s => s.ConfigKey == configKey);
         if (step == null)
         {
             await modal.RespondAsync("Err: Original setup step not found in the pending list", ephemeral: true);
             return;
         }
 
-        object parsedValue = inputValue;
+        (bool isValid, string? errorMessage, object? parsedValue) validationResult = (false, "Validator not set", null);
+        if (step.Validator != null)
+            validationResult = step.Validator(inputValue);
+        else
+            validationResult = (true, null, inputValue);
 
-        var validationResult = step.Validator(inputValue);
+
         if (!validationResult.isValid)
         {
             await modal.RespondAsync(
@@ -523,18 +736,21 @@ public class NotifierBot
             return;
         }
 
-        parsedValue = validationResult.parsedValue;
+        var valueToSet = validationResult.parsedValue ?? inputValue;
 
-        var success = JReader.OverwriteConfigValue(configKey, parsedValue);
+
+        var success = JReader.OverwriteConfigValue(configKey, valueToSet);
         if (success)
         {
-            _firstRun_PendingSteps.Remove(step);
-            await modal.RespondAsync($"{step.ModalTitle} has been set!", ephemeral: true);
-            await ProcessNextSetupStepAsync(modal);
+            _activeSetup_PendingSteps.Remove(step);
+            await modal.RespondAsync($"{step.ModalTitle} has been set to `{valueToSet}`", ephemeral: true);
+            await ProcessNextSetupStepAsync();
         }
         else
         {
-            await modal.RespondAsync($"Failed to set {step.ModalTitle} Please check logs (/debug) and try again via the button", ephemeral: true);
+            await modal.RespondAsync(
+                $"Failed to set {step.ModalTitle} Please check logs (/debug) and try again via the button",
+                ephemeral: true);
         }
     }
 
@@ -551,27 +767,26 @@ public class NotifierBot
 
         var effectiveChannelId = channelId == 0 ? DetermineChannelFromLogLevel(logLevel) : channelId;
 
-        if (JReader.IsNewCfgJustCreated && _firstRun_SetupChannelId != 0 && effectiveChannelId == _firstRun_SetupChannelId)
-            Console.WriteLine($"[SendBotMessage] First run setup active on channel {_firstRun_SetupChannelId}");
-        // decide whether to return or still attempt sending (risks cluttering setup)
-        // return;
-        // For now, we'll let it potentially send, but maybe log the deferral
-        // setup msgs are sent using different methods tied to the interaction context anyway
+        if (IsInteractiveSetupActive() && _activeSetup_ChannelId != 0 && effectiveChannelId == _activeSetup_ChannelId)
+            Console.WriteLine($"[SendBotMessage] Setup active on channel {_activeSetup_ChannelId}");
         if (!CanSendMessages())
         {
-            Console.WriteLine("bot timed out (paused)... message not sent.");
+            Console.WriteLine("bot timed out (paused)... message not sent");
             return;
         }
 
 
-        // if channelId was 0, it's now determined by logLevel via effectiveChannelId
         if (channelId == 0)
         {
             channelId = effectiveChannelId;
             if (channelId == 0)
             {
-                MethodMsgSetup($"Could not determine channel for logLevel {logLevel}. Config value might be missing or 0.", _firstRun_SetupChannelId != 0 ? _firstRun_SetupChannelId : 0, 1);
-                Console.WriteLine($"[SendBotMessage] Failed to determine channel for logLevel {logLevel}. Cfg values might be missing.");
+                var errorFallbackChannel = IsInteractiveSetupActive()
+                    ? _activeSetup_ChannelId
+                    : JReader.CurrentConfig.generalBotSetupChannelId;
+                if (errorFallbackChannel != 0)
+                    MethodMsgSetup($"Could not determine channel for logLevel {logLevel} cfg value might be missing or 0", errorFallbackChannel, 1);
+                Console.WriteLine($"[SendBotMessage] Could not determine channel for logLevel {logLevel} cfg value might be missing or 0");
                 return;
             }
         }
@@ -579,7 +794,6 @@ public class NotifierBot
         switch (logLevel)
         {
             case 0:
-                //setup the bot
                 MethodMsgSetup(msg, channelId, 0);
                 break;
             case 1:
@@ -592,7 +806,12 @@ public class NotifierBot
                 MethodMsgImportant(msg, header, channelId, true);
                 break;
             default:
-                MethodMsgSetup($"logLevel was either out of bounds (0-3). Received: {logLevel}", channelId, 1);
+                var errorFallbackChannelDef = IsInteractiveSetupActive()
+                    ? _activeSetup_ChannelId
+                    : JReader.CurrentConfig.generalBotSetupChannelId;
+                if (errorFallbackChannelDef != 0)
+                    MethodMsgSetup($"logLevel was either out of bounds (0-3). Received: {logLevel}", errorFallbackChannelDef, 1);
+                Console.WriteLine($"[SendBotMessage] logLevel was out of bounds (0-3). Received: {logLevel}");
                 break;
         }
     }
@@ -615,7 +834,7 @@ public class NotifierBot
     {
         if (_client.ConnectionState != ConnectionState.Connected)
         {
-            Console.WriteLine("[SendMsgEmbed] Bot not connected. Message not sent.");
+            Console.WriteLine("[SendMsgEmbed] Bot not connected = msg not sent");
             return;
         }
 
@@ -623,19 +842,24 @@ public class NotifierBot
 
         if (effectiveChannelId == 0)
         {
-            Console.WriteLine($"[SendMsgEmbed] Failed to determine channel for logLevel {logLevel}. Cfg values might be missing.");
+            Console.WriteLine(
+                $"[SendMsgEmbed] Failed to determine channel for logLevel {logLevel} cfg values missing?");
             return;
         }
 
-        if (JReader.IsNewCfgJustCreated && _firstRun_SetupChannelId != 0 &&
-            effectiveChannelId == _firstRun_SetupChannelId)
-            Console.WriteLine($"[SendMsgEmbed] First run setup active on channel {_firstRun_SetupChannelId}. Deferring standard embed to setup channel");
+        if (IsInteractiveSetupActive() && _activeSetup_ChannelId != 0 && effectiveChannelId == _activeSetup_ChannelId)
+            Console.WriteLine($"[SendMsgEmbed] Setup active on channel {_activeSetup_ChannelId}");
 
-
-        var channel = (ITextChannel)await _client.GetChannelAsync(Convert.ToUInt64(effectiveChannelId));
+        var channel = await _client.GetChannelAsync(Convert.ToUInt64(effectiveChannelId)) as ITextChannel;
 
         if (channel != null)
         {
+            if (!CanSendMessages())
+            {
+                Console.WriteLine("bot timed out (paused)... embed message not sent");
+                return;
+            }
+
             var embed = embedBuilder.Build();
             await channel.SendMessageAsync(embed: embed);
         }
@@ -649,14 +873,28 @@ public class NotifierBot
     public async Task MethodMsgSetup(string payload, ulong channelId, int type)
     {
         if (_client.ConnectionState != ConnectionState.Connected) return;
+        if (channelId == 0)
+        {
+            Console.WriteLine($"[MethodMsgSetup] Target channelId is 0");
+            // ADD MB
+            return;
+        }
 
-        var channel = (ITextChannel)await _client.GetChannelAsync(Convert.ToUInt64(channelId));
+
+        var channel = await _client.GetChannelAsync(Convert.ToUInt64(channelId)) as ITextChannel;
 
         if (channel != null)
+        {
+            if (!CanSendMessages() && type != 1)
+            {
+                Console.WriteLine("bot timed out (paused)... setup message not sent");
+                return;
+            }
+
             switch (type)
             {
                 case 0:
-                    await channel.SendMessageAsync($"Hello! This is the 1st message on startup from the bot! Use /startinfo to get further information. If its the 1st startup it might take time for the slash commands to take effect.\nTrack Discord Messages: {JReader.CurrentConfig.trackDiscord}, Track Roblox: {JReader.CurrentConfig.trackRoblox}.\nTracking will begin in shortly for the activated...");
+                    await channel.SendMessageAsync($"Hi! This is the 1st message on startup from the bot! Use /startinfo to get further information. If its the 1st startup it might take time for the slash commands to take effect.\nTrack Discord Messages: {JReader.CurrentConfig.trackDiscord}, Track Roblox: {JReader.CurrentConfig.trackRoblox}.\nTracking will begin in shortly for the activated...");
                     break;
                 case 1:
                     await channel.SendMessageAsync(payload);
@@ -665,18 +903,27 @@ public class NotifierBot
                     await channel.SendMessageAsync("Unknown call received");
                     break;
             }
+        }
         else
+        {
             Console.WriteLine($"[MethodMsgSetup] Target channel {channelId} not found or is not a text channel");
+        }
     }
 
     private async Task MethodMsgLog(string payload, bool header, ulong channelId)
     {
         if (_client.ConnectionState != ConnectionState.Connected) return;
 
-        var channel = (ITextChannel)await _client.GetChannelAsync(Convert.ToUInt64(channelId));
+        var channel = await _client.GetChannelAsync(Convert.ToUInt64(channelId)) as ITextChannel;
 
         if (channel != null)
         {
+            if (!CanSendMessages())
+            {
+                Console.WriteLine("bot timed out (paused)... log message not sent.");
+                return;
+            }
+
             var embed = new EmbedBuilder()
                 .WithDescription(payload)
                 .WithColor(new Discord.Color(0, 200, 255))
@@ -693,7 +940,7 @@ public class NotifierBot
         }
         else
         {
-            Console.WriteLine($"[MethodMsgLog] Target channel {channelId} not found or is not a text channel.");
+            Console.WriteLine($"[MethodMsgLog] channel {channelId} not found");
         }
     }
 
@@ -706,10 +953,16 @@ public class NotifierBot
             // TODO: COOK THIS UP
         }
 
-        var channel = (ITextChannel)await _client.GetChannelAsync(Convert.ToUInt64(channelId));
+        var channel = await _client.GetChannelAsync(Convert.ToUInt64(channelId)) as ITextChannel;
 
         if (channel != null)
         {
+            if (!CanSendMessages())
+            {
+                Console.WriteLine("bot timed out (paused)... important message not sent.");
+                return;
+            }
+
             var embed = new EmbedBuilder()
                 .WithDescription(payload)
                 .WithColor(new Discord.Color(255, 0, 0))
@@ -722,7 +975,7 @@ public class NotifierBot
                 embed.WithTitle("");
 
             var pingTarget = JReader.CurrentConfig.generalWhoToPing;
-            if (string.IsNullOrWhiteSpace(pingTarget))
+            if (string.IsNullOrWhiteSpace(pingTarget) || pingTarget.Equals(new JReader.Config().generalWhoToPing, StringComparison.OrdinalIgnoreCase))
             {
                 Console.WriteLine("[MethodMsgImportant] generalWhoToPing is not set Sending important message without ping");
                 await channel.SendMessageAsync(embed: embed.Build());
@@ -745,19 +998,15 @@ public class NotifierBot
     {
         _endTime = DateTime.Now.AddMinutes(min);
         Console.WriteLine($"msgs should be paused until {_endTime}");
-
-        await Task.Delay(TimeSpan.FromMinutes(min));
-
-        _endTime = null;
-        Console.WriteLine("msgs can now be sent again");
     }
+
 
     private bool CanSendMessages()
     {
         if (_endTime == null || DateTime.Now > _endTime) return true;
         return false;
     }
-    
+
     public ulong GetGuildId(ulong channelId)
     {
         if (channelId == 0) return 0;
@@ -765,15 +1014,15 @@ public class NotifierBot
         var channel = _client.GetChannel(channelId) as SocketGuildChannel;
         return channel?.Guild.Id ?? 0;
     }
-    
 }
 
-public enum TrackingOptionsChoice
+public class TrackableService
 {
-    None,
-    Discord,
-    Roblox,
-    Both
+    public string Id { get; set; }
+    public string Name { get; set; }
+    public string? EnableConfigKey { get; set; }
+    public List<SetupStep> SetupSteps { get; set; } = new();
+    public bool IsCoreSetting { get; set; } = false;
 }
 
 public class SetupStep
@@ -784,6 +1033,16 @@ public class SetupStep
     public string ModalTitle { get; set; }
     public string ModalInputLabel { get; set; }
     public TextInputStyle ModalInputStyle { get; set; } = TextInputStyle.Short;
+
     public string ModalPlaceholder { get; set; } = "Enter value here";
-    public Func<string, (bool isValid, string errorMessage, object parsedValue)> Validator { get; set; }
+
+    // returns: IsValid, ErrorMessage (if !IsValid), ParsedValue
+    public Func<string, (bool isValid, string? errorMessage, object? parsedValue)>? Validator { get; set; } =
+        DefaultValidator;
+
+    // validator for shrimple str inputs or when specific validation isnt needed at step level
+    private static (bool, string?, object?) DefaultValidator(string input)
+    {
+        return (true, null, input);
+    }
 }

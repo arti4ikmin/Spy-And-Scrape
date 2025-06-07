@@ -5,6 +5,10 @@ This project is a bot managable trough discord, which tracks certain actions of 
 
 Screenshot of testing the bot on first startup(subject to change):
 ![test](https://github.com/user-attachments/assets/5bfdab7f-8a3f-4fb4-b896-d8663d2b62e5)
+Discord Tracking example: 
+![dc](https://github.com/user-attachments/assets/bd916dba-fdb7-4f29-b892-ed6348f38766)
+Roblox Tracking example:
+![rb](https://github.com/user-attachments/assets/83a58b3f-40d4-4ebb-a026-48418d3aed38)
 
 
 # PROJECT IS IN EARLY DEV

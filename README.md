@@ -3,10 +3,14 @@
 
 This project is a bot managable trough discord, which tracks certain actions of a selected user and reports them in a customizable channel.
 
+Screenshot of testing the bot on first startup(subject to change):
+![{AA895430-262C-49E8-8607-35F9332D8E44}](https://github.com/user-attachments/assets/6a944ee6-6339-4d6f-85f8-35196d637ab6)
+
+
 # PROJECT IS IN EARLY DEV
 ## How-to
 ### Requirements
-- dotNET Runtime (tested with 8)
+- dotNET Runtime (tested with 8) (future releases might be standalone)
 
 ### [Video tutorial link (unaviable for now sry)](https://youtu.be/wgk_KMtgaXk)
 

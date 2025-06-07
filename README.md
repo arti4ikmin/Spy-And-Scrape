@@ -4,7 +4,7 @@
 This project is a bot managable trough discord, which tracks certain actions of a selected user and reports them in a customizable channel.
 
 Screenshot of testing the bot on first startup(subject to change):
-![{AA895430-262C-49E8-8607-35F9332D8E44}](https://github.com/user-attachments/assets/6a944ee6-6339-4d6f-85f8-35196d637ab6)
+![test](https://github.com/user-attachments/assets/5bfdab7f-8a3f-4fb4-b896-d8663d2b62e5)
 
 
 # PROJECT IS IN EARLY DEV

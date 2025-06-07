@@ -3,10 +3,17 @@
 
 This project is a bot managable trough discord, which tracks certain actions of a selected user and reports them in a customizable channel.
 
+Screenshot of testing the bot on first startup(subject to change):
+![test](https://github.com/user-attachments/assets/5bfdab7f-8a3f-4fb4-b896-d8663d2b62e5)
+<br>Discord Tracking example: 
+![dc](https://github.com/user-attachments/assets/bd916dba-fdb7-4f29-b892-ed6348f38766)<br>
+Roblox Tracking example:<br>
+![rb](https://github.com/user-attachments/assets/83a58b3f-40d4-4ebb-a026-48418d3aed38)
+
 # PROJECT IS IN EARLY DEV
 ## How-to
 ### Requirements
-- dotNET Runtime (tested with 8)
+- dotNET Runtime (tested with 8) (future releases might be standalone)
 
 ### [Video tutorial link (unaviable for now sry)](https://youtu.be/wgk_KMtgaXk)
 
@@ -70,7 +77,7 @@ Following options are aviable:
 - (more services ?)
 - try to apply changes without having to /restart
 - more commands for control
-
+- multiple users
 
 
 ## INFO

@@ -38,13 +38,14 @@ namespace SpyAndScrape
 {
     class Program
     {
-        private static DiscordMsgs _dcMsgs;
+        private static DiscordMsgs? _dcMsgs;
         private static HttpClient _httpClient;
         private static NotifierBot _bot;
-        private static StreamWriter _logWriter;
+        private static BotCmds _botCmds;
+        private static StreamWriter? _logWriter;
         private static TextWriter _origConsoleOutput;
         private static bool _isLogging = false;
-        private static NotifyIcon _notifyIcon;
+        private static NotifyIcon? _notifyIcon;
 
         private static bool _isFirstEverRun = false;
 
@@ -76,9 +77,9 @@ namespace SpyAndScrape
             {
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
-                    return dialog.InputValue;
+                    return dialog.InputValue ?? string.Empty;
                 }
-                return null;
+                return string.Empty;
             }
             
         }
@@ -122,9 +123,7 @@ namespace SpyAndScrape
                 
                 StartLogging();
                 Console.WriteLine("SPY AND SCRAPE: starting...");
-
-                // InitNotifyIcon();
-
+                
                 _httpClient = new HttpClient();
                 AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
 
@@ -151,7 +150,12 @@ namespace SpyAndScrape
                     await JReader.GetStartingJsonAsync(); // re read in case
                 }
 
-                if (JReader.CurrentConfig.generalBotSetupChannelId == 0)
+                _bot = new NotifierBot();
+                _botCmds = new BotCmds(_bot.Client, _bot);
+                _bot.AssignBotCommands(_botCmds);
+
+
+                if (JReader.CurrentConfig.generalBotSetupChannelId == 0 && _isFirstEverRun)
                 {
                     Console.WriteLine("CRITICAL: No setup channel ID provided. Prompting user.");
                     var tmpval = PromptInput("Setup Channel ID Required", "CRITICAL: Please provide the starting channel ID for the bot (e.g., for setup messages):");
@@ -172,8 +176,6 @@ namespace SpyAndScrape
                     await JReader.GetStartingJsonAsync();
                 }
 
-                _bot = new NotifierBot();
-
 
                 Task botLifetimeTask; // main runnin task
                 
@@ -186,20 +188,17 @@ namespace SpyAndScrape
                         await _bot.WaitForReadyAsync();
                         Console.WriteLine("[Program] Bot is ready. Initiating first-run setup via Discord.");
                         await _bot.InitiateFirstRunSetupAsync(JReader.CurrentConfig.generalBotSetupChannelId);
-                        // when setup completes, IsNewCfgJustCreated will be false (handled in NotifierBot I hope)
-                        if (!JReader.IsNewCfgJustCreated)
-                        {
-                            Console.WriteLine("[Program] Firstrun setup done; starting trackers if enabled");
-                            StartTrackers();
-                        }
                     });
                 }
                 else
                 {
-                    // normal
-                    Console.WriteLine("[Program] Existing cfg or init setup not triggered proceeding with normal startup");
-                    JReader.IsNewCfgJustCreated = false;
-                    StartTrackers();
+                    Console.WriteLine("[Program] Existing cfg or initial setup not triggered/required; proceeding with normal startup.");
+                    if (_isFirstEverRun)
+                    {
+                         JReader.IsNewCfgJustCreated = false;
+                         Console.WriteLine("[Program] First run flag was true but setup skipped. Ensure config is usable or run /reconfigure.");
+                    }
+                    _StartTrackersInternal();
                     botLifetimeTask = _bot.StartAsync(JReader.CurrentConfig.generalBotToken);
                 }
 
@@ -221,7 +220,7 @@ namespace SpyAndScrape
             }
         }
 
-        private static void StartTrackers()
+        private static void _StartTrackersInternal()
         {
             if (!JReader.IsNewCfgJustCreated)
             {
@@ -245,72 +244,12 @@ namespace SpyAndScrape
             }
         }
 
-        // private static void InitNotifyIcon()
-        // {
-        //     _notifyIcon = new NotifyIcon();
-        //
-        //     string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico");
-        //     if (File.Exists(iconPath))
-        //     {
-        //         _notifyIcon.Icon = new Icon(iconPath);
-        //     }
-        //     
-        //
-        //
-        //     _notifyIcon.Text = "SpyAndScrape";
-        //     _notifyIcon.Visible = true;
-        //
-        //     var contextMenu = new ContextMenuStrip();
-        //     contextMenu.Items.Add("Open Log File", null, OnOpenLogClickedHandler);
-        //     contextMenu.Items.Add("Restart", null, OnRestartClickedHandler);
-        //     contextMenu.Items.Add(new ToolStripSeparator());
-        //     contextMenu.Items.Add("Exit", null, OnExitClickedHandler);
-        //
-        //     _notifyIcon.ContextMenuStrip = contextMenu;
-        //
-        //     // _notifyIcon.DoubleClick += (sender, args) => OnOpenLogClickedHandler(sender, args);
-        // }
-        // private static void OnOpenLogClickedHandler(object sender, EventArgs e)
-        // {
-        //     string logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "console_output.txt");
-        //     Process.Start(new ProcessStartInfo(logFilePath) { UseShellExecute = true });
-        // }
-        //
-        // private static void OnRestartClickedHandler(object sender, EventArgs e)
-        // {
-        //     DialogResult result = MessageBox.Show("Are you sure you want to restart SpyAndScrape?", "SpyAndScrape - Restart Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-        //     if (result == DialogResult.Yes)
-        //     {
-        //         Console.WriteLine("[NotifyIcon] Restart requested by user.");
-        //         _notifyIcon?.Dispose();
-        //         _notifyIcon = null;
-        //
-        //         string exePath = Process.GetCurrentProcess().MainModule.FileName;
-        //         try
-        //         {
-        //             Process.Start(exePath, "delay");
-        //             PerformShutdownTasks(minimal: true);
-        //             StopLogging();
-        //             Environment.Exit(0);
-        //         }
-        //         catch (Exception ex)
-        //         {
-        //             MessageBox.Show($"Failed to restart the application: {ex.Message}", "SpyAndScrape - Restart Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        //             if (_notifyIcon != null) InitNotifyIcon();
-        //         }
-        //     }
-        // }
-        //
-        // private static void OnExitClickedHandler(object sender, EventArgs e)
-        // {
-        //     DialogResult result = MessageBox.Show("Are you sure you want to exit SpyAndScrape?", "SpyAndScrape - Exit Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-        //     if (result == DialogResult.Yes)
-        //     {
-        //         Console.WriteLine("[NotifyIcon] Exit requested by user");
-        //         // main fin block will handle PerformShutdownTasks, etc
-        //         Environment.Exit(0);
-        //     }
-        // }
+        public static void StartTrackersAfterSetup()
+        {
+            Console.WriteLine("[Program] Firstrun setup done, tracking as configured...");
+            _StartTrackersInternal();
+        }
+        
 
         private static void PerformShutdownTasks(bool minimal = false)
         {
@@ -319,14 +258,17 @@ namespace SpyAndScrape
 
             if (!minimal) // full shutdown if not an early exit due to config
             {
+                if (_dcMsgs != null)
+                {
+                    Console.WriteLine("Stopping Discord message tracking...");
+                     _dcMsgs.StopTrackingAsync().Wait(TimeSpan.FromSeconds(5)); 
+                } else {
+                    Console.WriteLine("Discord message tracking was not started, skipping stop.");
+                }
 
-                Console.WriteLine("Stopping Discord message tracking...");
-                // nonblocking StopTrackingAsync
-                // await _dcMsgs.StopTrackingAsync();
-                 _dcMsgs.StopTrackingAsync().Wait(TimeSpan.FromSeconds(5)); // can risk deadlock
 
-                 Console.WriteLine("Shutting down Discord bot...");
-                 _bot.ShutdownBot().Wait(TimeSpan.FromSeconds(5));
+                Console.WriteLine("Shutting down Discord bot...");
+                _bot?.ShutdownBot().Wait(TimeSpan.FromSeconds(5));
             }
             Console.WriteLine("Core shutdown tasks completed");
         }
@@ -394,17 +336,21 @@ namespace SpyAndScrape
 
                 Debug.WriteLine($"[StartLogging CRITICAL Error] Failed to init StreamWriter for '{lFP}': {ex.Message}");
                 (_origConsoleOutput ?? Console.Error).WriteLine($"[CRITICAL ERROR] Failed to start file logging: {ex.Message}. Console output will not be saved to file.");
-                // MessageBox.Show($"Failed to init file logging: {ex.Message}", "Logging Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         private static void StopLogging()
         {
             if (!_isLogging) return;
             Console.WriteLine($"------[INFO] Logging stopped: {DateTime.Now} ------");
+            _logWriter?.Flush();
             _logWriter?.Close();
             _logWriter?.Dispose();
             _logWriter = null;
-            Console.SetOut(_origConsoleOutput);
+
+            if (_origConsoleOutput != null)
+            {
+                Console.SetOut(_origConsoleOutput);
+            }
             _isLogging = false;
         }
 
@@ -420,9 +366,9 @@ namespace SpyAndScrape
     public class MultiWriter : TextWriter
     {
         private readonly TextWriter _consoleOut;
-        private readonly TextWriter _logWriter;
+        private readonly TextWriter? _logWriter;
 
-        public MultiWriter(TextWriter consoleOut, TextWriter logWriter)
+        public MultiWriter(TextWriter consoleOut, TextWriter? logWriter)
         {
             _consoleOut = consoleOut;
             _logWriter = logWriter;
@@ -431,13 +377,13 @@ namespace SpyAndScrape
         public override void Write(char value)
         {
             _consoleOut.Write(value);
-            _logWriter.Write(value);
+            _logWriter?.Write(value);
         }
 
         public override void Write(string? value)
         {
             _consoleOut.Write(value);
-            _logWriter.Write(value);
+            _logWriter?.Write(value);
         }
 
         public override Encoding Encoding => _consoleOut.Encoding;
@@ -445,7 +391,7 @@ namespace SpyAndScrape
 
     public static class CommandLineArgs
     {
-        private static string[] _args;
+        private static string[] _args = Array.Empty<string>();
 
         public static void SetArgs(string[] args)
         {

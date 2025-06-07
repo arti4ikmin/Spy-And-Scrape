@@ -188,37 +188,43 @@ public class RobloxTrack
             
             if (action == "added")
             {
-                var addedIds = resFriend.Item2["Items"]["value"]
+                var addedItemsToken = resFriend.Item2["Items"]["newValue"] ?? resFriend.Item2["Items"]["addedItems"];
+                if (addedItemsToken != null)
+                {
+                    var addedIds = addedItemsToken
                     .Select(item => (long)item["id"])
                     .ToArray();
 
-                StringBuilder urlAddedUsr = new StringBuilder();
-                for (int i = 0; i < addedIds.Length; i++)
-                {
-                    urlAddedUsr.AppendFormat("[User{0}](https://www.roblox.com/users/{1}/profile)\n", i + 1, addedIds[i]);
+                    StringBuilder urlAddedUsr = new StringBuilder();
+                    for (int i = 0; i < addedIds.Length; i++)
+                    {
+                        urlAddedUsr.AppendFormat("[User{0}](https://www.roblox.com/users/{1}/profile)\n", i + 1, addedIds[i]);
+                    }
+                    
+                    _notifierBot.SendBotMessage($"Your target **added** these to their friends: \n " + $"{urlAddedUsr}" + "\n ");
+                    
+                    Console.WriteLine("added friends completed");
                 }
-                
-                _notifierBot.SendBotMessage($"Your target **added** these to their friends: \n " +
-                                           $"{urlAddedUsr}" + "\n ");
-                
-                Console.WriteLine("added friends completed");
             }
             if (action == "deleted")
             {
-                var removedIds = resFriend.Item2["Items"]["deletedItems"]
+                var removedItemsToken = resFriend.Item2["Items"]["deletedItems"] ?? resFriend.Item2["Items"]["oldValue"];
+                if (removedItemsToken != null)
+                {
+                    var removedIds = removedItemsToken
                     .Select(item => (long)item["id"])
                     .ToArray();
 
-                StringBuilder urlDeletedUsr = new StringBuilder();
-                for (int i = 0; i < removedIds.Length; i++)
-                {
-                    urlDeletedUsr.AppendFormat("[User{0}](https://www.roblox.com/users/{1}/profile)\n", i + 1, removedIds[i]);
+                    StringBuilder urlDeletedUsr = new StringBuilder();
+                    for (int i = 0; i < removedIds.Length; i++)
+                    {
+                        urlDeletedUsr.AppendFormat("[User{0}](https://www.roblox.com/users/{1}/profile)\n", i + 1, removedIds[i]);
+                    }
+                    
+                    _notifierBot.SendBotMessage($"Your target **removed** following people from their friends list: \n " + $"{urlDeletedUsr}" + "\n ");
+                    
+                    Console.WriteLine("removed friends completed");
                 }
-                
-                _notifierBot.SendBotMessage($"Your target **removed** following people from their friends list: \n " +
-                                           $"{urlDeletedUsr}" + "\n ");
-                
-                Console.WriteLine("removed friends completed");
             }
 
             if (action == "edited")

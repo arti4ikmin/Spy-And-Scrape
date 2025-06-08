@@ -37,9 +37,11 @@ Roblox Tracking example:<br>
 
 
 ## Config
+<details>
 
-Config is probably the main part of the program, used to direct it.
-Following options are aviable:
+<summary>Open me for details</summary>
+<br>
+
 
 
 | **Name**                     | **Description**                                                                 | **Codename (in JSON)**                     | **Var Type**          |
@@ -68,8 +70,8 @@ Following options are aviable:
 - required means you need to change this if you want to track that 
  - logLevel can only be between 1-3 (including)
  - for "Startup Message" its an 0 or 1, not bool, bc I had some parsing problems
-
-
+</details>
+Config is probably the main part of the program, used to direct it. Bot now userfriendly, but still working on these variables
 
 ## TODO (future plans)
 

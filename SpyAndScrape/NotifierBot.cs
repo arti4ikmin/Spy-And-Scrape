@@ -785,9 +785,10 @@ public class NotifierBot
                     ? _activeSetup_ChannelId
                     : JReader.CurrentConfig.generalBotSetupChannelId;
                 if (errorFallbackChannel != 0)
-                    MethodMsgSetup($"Could not determine channel for logLevel {logLevel} cfg value might be missing or 0", errorFallbackChannel, 1);
-                Console.WriteLine($"[SendBotMessage] Could not determine channel for logLevel {logLevel} cfg value might be missing or 0");
-                return;
+                    //MethodMsgSetup($"Could not determine channel for logLevel {logLevel} cfg value might be missing or 0", errorFallbackChannel, 1);
+                    Console.WriteLine($"[SendBotMessage] Could not determine channel for logLevel {logLevel} cfg value might be missing or 0");
+                // idk here but I assume we simply can set it here as a last resort instead of entirely exiting, errorFallbackChannel fails sometimes gotta figure out why tho
+                channelId = JReader.CurrentConfig.generalBotSetupChannelId;
             }
         }
 
